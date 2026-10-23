@@ -1,0 +1,38 @@
+# dsh-virtual-computer-use — DSH bundle patch layer
+#
+# 把插件挂进 DSH。本插件是纯 Host 半实现（无 client 半），入口是 host.js
+# （package.json 的 exports["."] = ./host.js）。
+#
+# ⚠️ `name` 必须是**普通字符串包名**，不能写成 `!!js` 表达式。
+# 原因（实测，DSH 0.2.0-rc.2）：profile 在挂载前会对每个 row 做兼容性预检
+# （app-boot 的 compatibility-preflight），预检拿到的是**尚未求值的原始 row**；
+# 它调用 manifestOf(row.name, base) → `name.startsWith('cordis:')`。
+# 若 name 是 `!!js` 表达式对象 `{__jsExpr: ...}`，预检直接抛
+#   TypeError: name.startsWith is not a function
+# 于是该 row 被判定为「peer dependencies cannot be validated」并 **强制 disabled**：
+#   dsh: disabling profile plugin row "dsh-virtual-computer-use": ...
+# 后果有两层：
+#   1) 插件根本不会挂载（工具不注册），UI 上表现为「已安装，重启后生效」却始终未生效；
+#   2) row 被禁用后 name 保持为那个表达式对象，插件管理页读取清单时
+#      readPluginInventory → pluginPackages.metaOf(object) → barePackageName 抛
+#      TypeError: request.includes is not a function，
+#      pluginManager.listPlugins() 整体失败 → 插件页显示「刷新失败，请重试」。
+#
+# 用普通包名即可：Loader 以 profile 目录为 base 解析（profile 的 node_modules
+# 里有该包的 link），这与 dsh-thinking-levels 等本地开发插件完全一致。
+
+- insert:
+    - id: dsh-virtual-computer-use
+      name: dsh-virtual-computer-use
+      config:
+        # AI 操作屏幕时是否显示「屏幕操作中」悬浮窗。
+        overlay: true
+        # 悬浮窗文案。
+        overlayText: 'AI 正在操作电脑'
+        # 连续按两下 ESC 中断 AI 操作的间隔阈值（毫秒）。
+        escAbort:
+          enabled: true
+          thresholdMs: 400
+          cooldownMs: 400
+        # 是否把电脑操作工具暴露给模型。
+        tools: true

@@ -1,0 +1,2047 @@
+﻿/**
+ * dsh-virtual-computer-use 鈥斺€?铏氭嫙杈撳叆灞傦紙榧犳爣 + 閿洏绐楀彛娑堟伅娉ㄥ叆锛夈€? *
+ * ## 鏍稿績璁捐鐩爣锛氱湡瀹炲厜鏍囦笉鍔? *
+ * 鍏ㄩ儴杈撳叆閮借蛋 `PostMessageW` 鎶?WM_* 娑堟伅濉炶繘鐩爣绐楀彛鐨勬秷鎭槦鍒楋紝**缁濅笉璋冪敤
+ * `SetCursorPos` / `SendInput` / `mouse_event`**銆傚洜姝わ細
+ *   - 鐢ㄦ埛鐨勭墿鐞嗛紶鏍囧彲浠ュ苟琛屾搷浣滐紝涓よ€呬簰涓嶅共鎵帮紱
+ *   - 涓嶄細鍥犱负鎴戜滑鐨勫姩浣滆€屾墦鏂敤鎴锋鍦ㄥ仛鐨勪簨锛? *   - 浠ｄ环鏄細鐩爣鏄?绂诲睆娓叉煋"绾у埆鐨勬ā鎷燂紝瀵规煇浜涙帶浠朵笉鐢熸晥锛堣涓嬶級銆? *
+ * 鏈ā鍧楀彧 import 鍙鐨?`lib/native.js`锛屼笉淇敼瀹冦€? *
+ * ## 宸茬煡灞€闄愶紙PostMessage 瀵逛互涓嬬洰鏍囧父甯告棤鏁堬紝瀹炴祴涓庡叡璇嗭級
+ *
+ *   1. **UWP / 鎵撳寘搴旂敤**锛堣缃€佽绠楀櫒銆乆AML Islands锛夛細杈撳叆鏍堣蛋
+ *      CoreWindow/InputPane锛學M_* 娑堟伅涓嶈繘鍏ュ叾杈撳叆娉点€傗啋 闇€闄嶇骇璺緞銆? *   2. **鏇撮珮瀹屾暣鎬х骇鍒殑绐楀彛**锛堜互绠＄悊鍛樿繍琛岀殑绋嬪簭锛夛細UIPI 浼氫涪寮冩潵鑷綆
+ *      瀹屾暣鎬ц繘绋嬬殑 PostMessage锛圥ostMessageW 鐩存帴杩斿洖 false锛夈€傗啋 鍙兘鎻愭潈銆? *   3. **Chromium/Electron 鐨勯儴鍒嗘帶浠?*锛氭覆鏌撹繘绋嬭嚜鏈夎緭鍏ヨ浆鍙戯紝涓荤獥鍙ｇ殑
+ *      WM_MOUSE* 鍙兘琚拷鐣ワ紱娴忚鍣ㄥ唴瀹瑰尯瀵?WM_CHAR 灏ゅ叾涓嶅彲闈犮€? *   4. **DirectInput / 鍏ㄥ睆娓告垙 / 杩滅▼妗岄潰瀹㈡埛绔?*锛氳疆璇?*AsyncKeyState 鑰岄潪
+ *      娑堟伅闃熷垪锛孭ostMessage 瀹屽叏鏃犳晥銆? *   5. **缁堢绫荤獥鍙?*锛圵indows Terminal / conhost锛変笌 **IME 缁勫悎绐楀彛**锛? *      鍓嶈€呰蛋 ConPTY 鑷湁杈撳叆閫氶亾锛屽悗鑰呬緷璧栫湡瀹炵劍鐐逛笌 IME 鐘舵€併€? *   6. 娑堟伅杩涚殑鏄?*鐩爣绐楀彛鐨勬秷鎭槦鍒?*锛屽洜姝ゅ畠蹇呴』鏈変竴鏉℃鍦ㄨ窇鐨勬秷鎭惊鐜紱
+ *      鎸傛锛圛sHungAppWindow锛夌殑绐楀彛娑堟伅姘歌繙涓嶄細琚鐞嗐€? *
+ * ## 鍏抽敭灞€闄愶細闈炲瓧绗︽寜閿涔変笉鍙潬锛堝疄娴嬶紝蹇呰锛? *
+ * `PostMessage` 鎶婃秷鎭洿鎺ュ杩涚洰鏍囩獥鍙ｉ槦鍒楋紝**缁曡繃鎺ユ敹绾跨▼娑堟伅寰幆閲岀殑
+ * `TranslateMessage`**銆備簬鏄細
+ *
+ *   | 娑堟伅                          | 绾?PostMessage 涓?| 鍘熷洜 |
+ *   |-------------------------------|-------------------|------|
+ *   | `WM_CHAR`锛堝瓧绗︺€佸惈涓枃/emoji锛墊 **鍙潬**          | 绐楀彛杩囩▼鐩存帴澶勭悊 |
+ *   | `WM_MOUSE*`锛堥紶鏍囷級            | **鍙潬**          | 绐楀彛杩囩▼鐩存帴澶勭悊 |
+ *   | `WM_KEYDOWN` 鐨勯潪瀛楃璇箟      | **涓嶅彲闈?*        | 渚濊禆 TranslateMessage |
+ *
+ * 鐪熷疄 notepad 鎺у埗鍙橀噺瀹炴祴锛? *   - `pressKey(hwnd,'delete')` 鈫?娑堟伅鎶曢€掓垚鍔燂紝**鏂囨湰瀹屽叏娌″彉**锛? *   - `keyCombo(hwnd,'ctrl+a')` 鈫?閫夊尯浠嶆槸 `{10,10}`锛屼絾鍐呭澶氬嚭涓€涓?`"a"`锛? *     璇存槑**淇グ閿病鐢熸晥銆乣a` 琚綋鏅€氬瓧绗︽彃鍏ヤ簡**锛? *   - `Home`/`End`/鏂瑰悜閿?鈫?閫夊尯璧锋**姘歌繙绛変簬鎻掑叆鐐?*锛屾牴鏈病鏈夊舰鎴愰€夊尯銆? *
+ * 鍥犳瀵?*缂栬緫鎺т欢**锛屽嚒娑夊強"閫夊尯 + 闈炲瓧绗﹂敭"鐨勬搷浣滈兘搴旀敼璧?`EM_*` 娑堟伅
+ * 锛坄EM_SETSEL` / `EM_REPLACESEL` / `EM_GETSEL`锛夛紝杩欎簺鐢辨帶浠惰嚜韬鐞嗐€佷笉缁? * 娑堟伅寰幆缈昏瘧锛屽疄娴嬪叏閮ㄥ彲闈?鈥斺€?瑙?`selectAll()` / `replaceSelection()` /
+ * `clearSelection()` / `edit()`銆? *
+ * `pressKey`/`keyCombo` 鐨勮繑鍥炲€?*涓嶄細**鐢ㄤ竴涓湅璧锋潵鎴愬姛鐨?`ok:true` 鎺╃洊杩欎欢浜嬶細
+ * 瀹冧滑棰濆甯?`reliability: 'low'|'medium'|'high'`銆乣degraded`銆乣note`銆? * `recommendedAlternative` 鍜?`measuredEvidence` 瀛楁銆俙ok` 鍙〃绀?*娑堟伅鎶曢€掓垚鍔?*锛? * 涓嶇瓑浜庣洰鏍囩湡鐨勬墽琛屼簡鍔ㄤ綔銆? *
+ * ## 闄嶇骇璺緞锛堜細鎶㈢劍鐐癸紒锛? *
+ * `ensureTargetReady()` 榛樿鍙仛闈炰镜鍏ユ搷浣滐紙鑻ユ渶灏忓寲鍒?`ShowWindow(SW_RESTORE)`锛? * 鍐?`SetWindowPos(SWP_NOACTIVATE)` 鎶?Z 搴忥級銆傝嫢纭疄闇€瑕佺湡瀹炲墠鍙板寲锛屽繀椤绘樉寮? * 浼?`{ allowFocusSteal: true }`锛屾鏃朵細璋冪敤 `SetForegroundWindow` 鈥斺€?**杩欎細鎶㈣蛋
+ * 鐢ㄦ埛褰撳墠鐨勭劍鐐癸紝骞朵笖鍙兘璁╃湡瀹炲厜鏍囪涓哄彈褰卞搷**锛屽睘浜?浼氭姠鐒︾偣"鐨勯檷绾ц矾寰勶紝
+ * 璋冪敤鏂瑰繀椤绘槑纭煡閬撱€? *
+ * `pressKey(..., { foreground: true })` / `click(..., { foreground: true })` 鍚屾牱
+ * 灞炰簬闄嶇骇璺緞锛氬厛鎶㈢劍鐐癸紝鍐嶆敼鐢ㄥ悓姝?`SendMessageW` 鐩存帴鎶曢€掞紙缁曡繃闃熷垪锛夛紝鐢ㄤ簬
+ * 鐩爣绐楀彛娑堟伅娉靛崱浣忔垨瀵?PostMessage 涓嶆晱鎰熺殑鍦哄悎銆? *
+ * ## 鎵€鏈?API 缁濅笉鎶涘紓甯? *
+ * 姣忎釜鍏紑鍑芥暟杩斿洖缁撴瀯鍖栧璞★紱澶辫触鏃?`{ ok:false, reason }`銆傚嚒鏄垚鍔熸姇閫掍簡娑堟伅
+ * 鐨勫姩浣滈兘浼氬甫 `posted`锛堝疄闄?PostMessageW 杩斿洖 true 鐨勬秷鎭潯鏁帮級锛屼究浜庡璁°€? */
+
+import {
+  loadWin32,
+  WM,
+  MK,
+  VK,
+  SW,
+  SWP,
+  SB,
+  HT,
+  enumWindows,
+  windowRect,
+  clientRect,
+  windowPid,
+  readWide,
+  describeNative,
+} from './native.js';
+
+/** 鏈ā鍧楀唴閮ㄤ娇鐢ㄧ殑 Win32 甯搁噺锛坣ative.js 鏈鍑虹殑閮ㄥ垎鍦ㄦ琛ラ綈锛屼笉鏀?native.js锛夈€?*/
+const MSG = {
+  ...WM,
+  // native.js 鐨?WM.SETCURSORPOS 瀹氫箟鏈夎锛?0x0200锛屼笌 WM_MOUSEMOVE 鎾炲彿锛夈€?  // 鐪熷疄 WM_SETCURSOR = 0x0020锛屽凡鍦?WM.SETCURSOR 涓紱姝ゅ涓嶉噸澶嶅畾涔夈€?  GETDLGCODE: 0x0087,
+  KEYFIRST: 0x0100,
+  KEYLAST: 0x0109,
+  SYSCHAR_EXT: 0x0106,
+};
+
+/** MapVirtualKey 鐨勬槧灏勭被鍨嬨€?*/
+const MAPVK = {
+  VK_TO_VSC: 0, // 铏氭嫙閿爜 鈫?鎵弿鐮?  VK_TO_VSC_EX: 3, // 鎵╁睍锛?xE0/0xE1 鍓嶇紑缂栫爜杩涢珮瀛楄妭锛堢敤鍚庨渶鎺╂帀锛?};
+
+/** 闇€瑕?0xE0 鍓嶇紑鐨勬墿灞曢敭銆俵Param 鐨?bit 24 蹇呴』缃綅锛屽惁鍒欓儴鍒嗙▼搴忚В鏋愰敊璇€?*/
+const EXTENDED_VKS = new Set([
+  0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, // PGUP PGDN END HOME LEFT UP RIGHT DOWN
+  0x2d, 0x2e, // INSERT DELETE
+  0x5b, 0x5c, 0x5d, // LWIN RWIN APPS
+  0x6f, // NUMPAD_DIVIDE
+  0x90, // NUMLOCK
+  0xa3, 0xa5, // RCONTROL / RMENU
+]);
+
+/**
+ * 鍚屼竴铏氭嫙閿爜鍦ㄤ富閿洏/灏忛敭鐩樹笂鎵弿鐮佷笉鍚岀殑閿紝蹇呴』鏄惧紡鎸囧畾 extended銆? *
+ * 鏈€閲嶈鐨勪竴渚嬶細**VK_RETURN**銆備富閿洏 Enter 鐨?lParam bit24 = 0銆佹壂鎻忕爜 0x1C锛? * 鍙湁**灏忛敭鐩?Enter** 鎵嶆槸鎵╁睍閿€傛妸涓婚敭鐩?Enter 鏍囨垚鎵╁睍閿紝浼氳璁颁簨鏈箣绫? * 鐨勭紪杈戞帶浠舵妸瀹冨綋鎴愬皬閿洏鍥炶溅澶勭悊锛堝疄娴嬩細鎻掗敊涓滆タ锛夛紝鎵€浠ヨ繖閲屾寜涓婚敭鐩樺鐞嗭紝
+ * 灏忛敭鐩樺洖杞﹁鏄惧紡鐢?`{ extended: true }`銆? */
+const NON_EXTENDED_OVERRIDES = new Set([0x0d]);
+
+/** Alt 缁勫悎瑕佽蛋 WM_SYSKEY*锛屽惁鍒欒彍鍗曞姞閫熼敭锛圓lt+F 绛夛級涓嶄細鐢熸晥銆?*/
+const SYS_MODIFIER_VKS = new Set([VK.MENU]);
+
+/** 淇グ閿?鈫?铏氭嫙閿爜銆?*/
+const MODIFIER_VKS = {
+  ctrl: VK.CONTROL,
+  control: VK.CONTROL,
+  shift: VK.SHIFT,
+  alt: VK.MENU,
+  menu: VK.MENU,
+  win: VK.LWIN,
+  super: VK.LWIN,
+  meta: VK.LWIN,
+  cmd: VK.LWIN,
+};
+
+/** 淇グ閿"铏氭嫙鎸変笅"鍚庯紝GetKeyState 浼氱湅鍒扮殑鎸変笅浣嶃€?*/
+const MODIFIER_PRESSED_BIT = {
+  ctrl: 0x8000,
+  shift: 0x8000,
+  alt: 0x8000,
+  win: 0x8000,
+};
+
+/** 鍚嶅瓧 鈫?铏氭嫙閿爜銆傞敭涓€寰嬪皬鍐欍€佸幓绌烘牸銆?*/
+const NAMED_KEYS = {
+  // 缂栬緫閿?  backspace: 0x08, back: 0x08, bs: 0x08,
+  tab: 0x09,
+  enter: 0x0d, return: 0x0d, cr: 0x0d, '\n': 0x0d, '\r': 0x0d,
+  shift: 0x10,
+  ctrl: 0x11, control: 0x11,
+  alt: 0x12, menu: 0x12,
+  pause: 0x13, break: 0x13,
+  capslock: 0x14, caps: 0x14,
+  esc: 0x1b, escape: 0x1b,
+  space: 0x20, ' ': 0x20, spacebar: 0x20,
+  pageup: 0x21, pgup: 0x21, prior: 0x21,
+  pagedown: 0x22, pgdn: 0x22, next: 0x22,
+  end: 0x23,
+  home: 0x24,
+  left: 0x25, arrowleft: 0x25,
+  up: 0x26, arrowup: 0x26,
+  right: 0x27, arrowright: 0x27,
+  down: 0x28, arrowdown: 0x28,
+  select: 0x29,
+  print: 0x2a, printscreen: 0x2c, prtsc: 0x2c, snapshot: 0x2c,
+  insert: 0x2d, ins: 0x2d,
+  delete: 0x2e, del: 0x2e,
+  help: 0x2f,
+  // 淇グ閿紙宸﹀彸鍒嗗紑锛?  lshift: 0xa0, rshift: 0xa1,
+  lctrl: 0xa2, rctrl: 0xa3, lcontrol: 0xa2, rcontrol: 0xa3,
+  lalt: 0xa4, ralt: 0xa5, lmenu: 0xa4, rmenu: 0xa5,
+  lwin: 0x5b, rwin: 0x5c, lsuper: 0x5b, rsuper: 0x5c, lmeta: 0x5b, rmeta: 0x5c,
+  apps: 0x5d, contextmenu: 0x5d, menu_key: 0x5d,
+  // 閿?  numlock: 0x90, scrolllock: 0x91, scroll: 0x91,
+  // 灏忛敭鐩?  numpad0: 0x60, numpad1: 0x61, numpad2: 0x62, numpad3: 0x63, numpad4: 0x64,
+  numpad5: 0x65, numpad6: 0x66, numpad7: 0x67, numpad8: 0x68, numpad9: 0x69,
+  multiply: 0x6a, add: 0x6b, separator: 0x6c, subtract: 0x6d, decimal: 0x6e, divide: 0x6f,
+  numpadmul: 0x6a, numpadadd: 0x6b, numpadsub: 0x6d, numpaddec: 0x6e, numpaddiv: 0x6f,
+  // 鏍囩偣锛堢墿鐞嗛敭锛岀敤铏氭嫙閿爜锛涢厤鍚?shift 鍙嚭绗﹀彿锛?  semicolon: 0xba, equals: 0xbb, equal: 0xbb, comma: 0xbc, minus: 0xbd,
+  period: 0xbe, dot: 0xbe, slash: 0xbf, backtick: 0xc0, grave: 0xc0,
+  bracketleft: 0xdb, bracketright: 0xdd, backslash: 0xdc, quote: 0xde,
+};
+
+/** 涓€娆℃€цˉ榻?a-z / 0-9 / f1-f24銆?*/
+for (let i = 0; i < 26; i += 1) {
+  NAMED_KEYS[String.fromCharCode(97 + i)] = 0x41 + i;
+}
+for (let i = 0; i < 10; i += 1) {
+  NAMED_KEYS[String(i)] = 0x30 + i;
+}
+for (let i = 1; i <= 24; i += 1) {
+  NAMED_KEYS[`f${i}`] = 0x6f + i;
+}
+
+// ---------------------------------------------------------------------------
+// 缁戝畾灞?// ---------------------------------------------------------------------------
+
+/**
+ * 鏈ā鍧椾緷璧?`lib/native.js` 鐨?`loadWin32()`銆? *
+ * 璇ュ嚱鏁版槸鍗曚緥銆佹瘡涓嚱鏁?*鐙珛** try/catch锛堝崟涓粦瀹氬け璐ュ彧璁拌繘 `loaded.failures`
+ * 骞惰繑鍥?`undefined`锛夛紝鍙湁 5 涓牳蹇冪粦瀹氬叏缂烘椂鎵嶅垽瀹?FFI 涓嶅彲鐢ㄣ€傛墍浠ヨ繖閲岀洿鎺? * 娑堣垂鍗冲彲锛屼笉鍐嶅仛浠讳綍琛ョ粦鈥斺€旇ˉ缁戜細鎺╃洊 native.js 鐨勭湡瀹為棶棰樸€? *
+ * 鏈ā鍧楅澶栫敤鍒扮殑銆乶ative.js 涔熷鍑虹殑缁戝畾锛歅ostMessageW / SendMessageW /
+ * GetCursorPos / MapVirtualKeyW / GetKeyState / GetAsyncKeyState / ClientToScreen /
+ * ScreenToClient / IsWindow / IsWindowVisible / IsWindowEnabled / IsIconic /
+ * IsHungAppWindow / GetForegroundWindow / GetWindowThreadProcessId /
+ * SetForegroundWindow / ShowWindow / SetWindowPos / AttachThreadInput /
+ * GetClassNameW / GetWindowTextW / GetCurrentThreadId銆? *
+ * 娉細杩涚▼鏄犲儚鏌ヨ锛圤penProcess / QueryFullProcessImageNameW锛塶ative.js 鏈鍑猴紝
+ * 鍥犳 `probeWindow()` 鐨?`image` 瀛楁鍦ㄧ己灏戣繖浜涚粦瀹氭椂涓?`undefined`锛? * 鏁忔劅搴﹀惎鍙戝紡浼氳嚜鍔ㄨ烦杩囧熀浜庢槧鍍忓悕鐨勫垽鏂紙璇﹁ describeSensitivity锛夈€? */
+
+/** 鍐呴儴锛氭嬁鍒扮粦瀹氾紝鎴栧湪涓嶅彲鐢ㄦ椂鎶涗竴涓甫 dshReason 鐨勯敊璇€傚叕寮€ API 鍏ㄩ儴鍖呬簡 try銆?*/
+function requireBindings() {
+  const loaded = loadWin32();
+  if (loaded.reason !== undefined) {
+    const error = new Error(loaded.reason);
+    error.dshReason = loaded.reason;
+    throw error;
+  }
+  return loaded;
+}
+
+// ---------------------------------------------------------------------------
+// 灏忓伐鍏?// ---------------------------------------------------------------------------
+
+/** 鎶婁换鎰忓€艰鏁存垚 32 浣嶆湁绗﹀彿鏁存暟銆?*/
+function toInt32(value, fallback = 0) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.trunc(n) | 0;
+}
+
+/** 鎶婁换鎰忓€艰鏁存垚鏃犵鍙?32 浣嶏紙鐢ㄤ簬 u32 鍙傛暟锛宬offi 鐢?BigInt 涔熷彲锛夈€?*/
+function toUint32(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.trunc(n) >>> 0;
+}
+
+/** hwnd 瑙勬暣鎴?number銆俴offi 鐨?intptr_t 榛樿浠?number 鍥炰紶锛堟湰鏈?64 浣嶄笅浠嶅湪瀹夊叏鑼冨洿锛夈€?*/
+function toHwnd(value) {
+  return Number(value);
+}
+
+/**
+ * 鎶婂鎴峰尯鍧愭爣鎵撳寘鎴?lParam锛歚(y << 16) | x`锛屾寜**鏈夌鍙?16 浣?*璇箟銆? *
+ * Windows 鐪熷疄鍋氭硶灏辨槸杩欎釜锛?32767 鐨勫潗鏍囪鎶樻垚璐熸暟锛屾帴鏀舵柟鐢? * `GET_X_LPARAM`锛堝嵆 `(short)(lParam & 0xFFFF)`锛夎繕鍘熴€侸S 閲?`<<16` 澶╃劧涓㈤珮浣嶏紝
+ * 浣嗙敤 `|` 浼氬緱鍒?*鏈夌鍙?32 浣?*缁撴灉锛屽啀琚?koffi 褰?intptr_t锛?4 浣嶏級浼犳椂锛? * 璐熸暟浼氱鍙锋墿灞曞埌 0xFFFFFFFFxxxxxxxx 鈥斺€?杩欏湪 32 浣?API 閲屾槸瀵圭殑锛堜綆 32 浣嶄竴鑷达級锛? * 鎵€浠ヨ繖閲屾樉寮?`| 0` 鍥哄寲鎴?int32 鍐嶄氦缁?koffi銆? *
+ * @returns {{ lp: number, x: number, y: number, lx: number, ly: number }}
+ */
+export function packMouseLParam(x, y) {
+  const cx = toInt32(x);
+  const cy = toInt32(y);
+  const low = (cx & 0xffff) >>> 0;
+  const high = ((cy & 0xffff) >>> 0) << 16;
+  const lp = (high | low) | 0; // int32锛屾湁绗﹀彿
+  // 鐢ㄦ湁绗﹀彿 16 浣嶈繕鍘燂紝楠岃瘉寰€杩斾竴鑷?  return {
+    lp,
+    x: cx,
+    y: cy,
+    lx: (lp << 16) >> 16,
+    ly: lp >> 16,
+  };
+}
+
+/** 浠?lParam 鍙嶈В锛岀瓑浠蜂簬 GET_X_LPARAM / GET_Y_LPARAM銆?*/
+export function unpackMouseLParam(lp) {
+  const v = toInt32(lp);
+  return { x: (v << 16) >> 16, y: v >> 16 };
+}
+
+/**
+ * 鏋勯€?WM_KEYDOWN/WM_KEYUP/WM_SYSKEYDOWN/WM_SYSKEYUP 鐨?lParam銆? *
+ * 浣嶅煙锛圡SDN 閿洏杈撳叆 lParam锛夛細
+ *   bits  0-15  repeat count           鈫?1
+ *   bits 16-23  scan code              鈫?MapVirtualKeyW(vk, MAPVK_VK_TO_VSC)
+ *   bit  24     extended key           鈫?鏂瑰悜閿?Ins/Del/Home/End/PgUp/PgDn/...
+ *   bits 25-28  reserved               鈫?0
+ *   bit  29     context code (Alt 鎸変笅)鈫?1 琛ㄧず Alt 澶勪簬鎸変笅鐘舵€? *   bit  30     previous key state     鈫?KEYUP 鏃跺繀椤讳负 1
+ *   bit  31     transition state       鈫?KEYUP 鏃朵负 1
+ *
+ * 鍏ㄩ儴鐢ㄦ棤绗﹀彿绠楁湳鏋勫缓锛屾渶鍚?`| 0` 鍥哄寲 int32锛岄伩鍏?JS 浣嶈繍绠楃鍙蜂綅韪╁潙銆? */
+export function buildKeyLParam(vk, options = {}) {
+  const { keyUp = false, altDown = false, extended, scanCode } = options;
+  const code = toInt32(vk) & 0xff;
+  let scan = scanCode;
+  if (scan === undefined) {
+    scan = scanCodeForVk(code);
+  }
+  const extendedBit = extended ?? (EXTENDED_VKS.has(code) && !NON_EXTENDED_OVERRIDES.has(code));
+
+  let lp = 1; // repeat count = 1
+  lp |= (toInt32(scan) & 0xff) << 16;
+  if (extendedBit) lp |= 1 << 24;
+  if (altDown) lp |= 1 << 29;
+  if (keyUp) {
+    lp |= 1 << 30; // previous key state
+    lp |= 1 << 31; // transition state
+  }
+  return lp | 0;
+}
+
+/** 鎵弿鐮佺紦瀛橈紙MapVirtualKeyW 寰堜究瀹滐紝浣嗙紦瀛樿浠ｇ爜鏇村共鍑€锛夈€?*/
+const scanCache = new Map();
+
+/** 鍙栬櫄鎷熼敭鐮佸搴旂殑鎵弿鐮侊紱澶辫触杩斿洖 0锛堝悎娉曪細閮ㄥ垎閿棤鎵弿鐮侊級銆?*/
+export function scanCodeForVk(vk) {
+  const code = toInt32(vk) & 0xff;
+  if (scanCache.has(code)) return scanCache.get(code);
+  let scan = 0;
+  try {
+    const loaded = requireBindings();
+    if (loaded.MapVirtualKeyW !== undefined) {
+      // 鐢?MAPVK_VK_TO_VSC(0)锛屼笉鐢?3锛氱被鍨?3 浼氭妸 0xE0 鍓嶇紑缂栫爜杩涢珮瀛楄妭锛?      // 鑰屾墿灞曚綅鎴戜滑宸插崟鐙敤 lParam bit24 琛ㄨ揪锛屾贩鐢ㄤ細寰楀埌閿欒鐨勬壂鎻忕爜銆?      scan = Number(loaded.MapVirtualKeyW(code, MAPVK.VK_TO_VSC)) & 0xff;
+    }
+  } catch {
+    scan = 0;
+  }
+  scanCache.set(code, scan);
+  return scan;
+}
+
+/** 瑙ｆ瀽 key 鍚嶇О 鈫?铏氭嫙閿爜銆傝繑鍥?`{ ok, vk }` 鎴?`{ ok:false, reason }`銆?*/
+export function resolveKey(name) {
+  if (typeof name === 'number' && Number.isFinite(name)) {
+    const vk = Math.trunc(name);
+    if (vk < 0 || vk > 0xff) return { ok: false, reason: `virtual-key code out of range: ${vk}` };
+    return { ok: true, vk, label: `vk:${vk}` };
+  }
+  if (typeof name !== 'string') {
+    return { ok: false, reason: `key must be a string or number, got ${typeof name}` };
+  }
+  const raw = name;
+  const normalized = name.trim().toLowerCase().replace(/\s+/g, '');
+  if (normalized === '') return { ok: false, reason: 'empty key name' };
+
+  // 鍗曞瓧绗︼細瀛楁瘝/鏁板瓧璧?VK 琛紱鍏跺畠鍗曞瓧绗﹀綋浣滆鎵撳瓧鐨勫唴瀹癸紙WM_CHAR锛夛紝涓嶆槸鎸夐敭銆?  if (normalized.length === 1) {
+    const hit = NAMED_KEYS[normalized];
+    if (hit !== undefined) return { ok: true, vk: hit, label: normalized };
+    // 鐢ㄥ瓧绗︾殑 UTF-16 鐮佺偣鍙嶆煡锛堝彧瀵?ASCII 鏈夋剰涔夛級
+    const code = normalized.charCodeAt(0);
+    if (code >= 0x20 && code < 0x7f) {
+      const upper = normalized.toUpperCase();
+      if (NAMED_KEYS[upper.toLowerCase()] !== undefined) {
+        return { ok: true, vk: NAMED_KEYS[upper.toLowerCase()], label: raw };
+      }
+    }
+    return {
+      ok: false,
+      reason: `"${raw}" is not a press-able key; it is a character 鈥?use writeText() for text`,
+    };
+  }
+
+  // 鏄惧紡铏氭嫙閿爜瀛楅潰閲忋€傜害瀹氾細
+  //   `vk:0x41` / `0x41` 鈫?鍗佸叚杩涘埗 0x41 = 65
+  //   `vk:65`            鈫?鍗佽繘鍒?65
+  // 鍙湪甯﹀墠缂€鏃剁敓鏁堬紝鍚﹀垯 "f5" 杩欑被鍚嶅瓧浼氳璇綋鍗佸叚杩涘埗鏁般€?  const hexMatch = /^(?:vk:)?0x([0-9a-f]+)$/.exec(normalized);
+  if (hexMatch !== null) {
+    const vk = Number.parseInt(hexMatch[1], 16);
+    if (Number.isFinite(vk) && vk >= 0 && vk <= 0xff) return { ok: true, vk, label: raw };
+    return { ok: false, reason: `virtual-key literal out of range (0x00-0xFF): ${raw}` };
+  }
+  const decMatch = /^vk:(\d+)$/.exec(normalized);
+  if (decMatch !== null) {
+    const vk = Number.parseInt(decMatch[1], 10);
+    if (Number.isFinite(vk) && vk >= 0 && vk <= 0xff) return { ok: true, vk, label: raw };
+    return { ok: false, reason: `virtual-key literal out of range (0-255): ${raw}` };
+  }
+
+  const hit = NAMED_KEYS[normalized];
+  if (hit === undefined) {
+    return { ok: false, reason: `unknown key name: "${raw}"` };
+  }
+  return { ok: true, vk: hit, label: normalized };
+}
+
+/**
+ * 鎶?"ctrl+shift+a" / "enter" / "alt+tab" 瑙ｆ瀽鎴?`{ modifiers, keys }`銆? *
+ * 瑙勫垯锛歚+` 鍒嗛殧锛涘墠瀵肩殑淇グ閿悕鏀堕泦杩?modifiers锛屽叾浣欎綔涓轰富閿紙鍏佽澶氫釜锛? * 鎸夐『搴忎緷娆℃寜涓?鎶捣锛岀敤浜?alt+tab 杩欑"涓€娆℃寜涓€涓?鐨勮涔夛級銆? */
+export function parseKeySpec(spec) {
+  let parts;
+  if (Array.isArray(spec)) {
+    parts = spec.map((item) => String(item));
+  } else if (typeof spec === 'string') {
+    // 鎸?'+' 鍒囧垎銆傛敞鎰?"ctrl++"锛堟兂鎸夊姞鍙烽敭锛変細鍒囨垚 ['ctrl','','']锛?    // 绌虹墖娈佃涓㈠純鍚庡氨娌℃湁涓婚敭浜?鈥斺€?杩欐槸**鏁呮剰**鐨勶細'+' 鏄垎闅旂锛?    // 瑕佹寜鍔犲彿閿鍐?"ctrl+add"锛堝皬閿洏鍔犲彿锛夋垨 ['ctrl', 0xBB]锛堜富閿洏鍔犲彿锛夈€?    parts = spec.split('+').map((item) => item.trim()).filter((item) => item !== '');
+  } else {
+    return { ok: false, reason: `key spec must be a string or array, got ${typeof spec}` };
+  }
+  if (parts.length === 0) return { ok: false, reason: 'empty key spec' };
+
+  const modifiers = [];
+  const keys = [];
+  for (const part of parts) {
+    const lower = part.toLowerCase().replace(/\s+/g, '');
+    const modifierVk = MODIFIER_VKS[lower];
+    if (modifierVk !== undefined && keys.length === 0) {
+      if (!modifiers.includes(modifierVk)) modifiers.push(modifierVk);
+      continue;
+    }
+    const resolved = resolveKey(part);
+    if (resolved.ok !== true) return resolved;
+    keys.push(resolved.vk);
+  }
+  if (keys.length === 0) {
+    return { ok: false, reason: `key spec "${spec}" has modifiers but no main key` };
+  }
+  return { ok: true, modifiers, keys };
+}
+
+/** 淇グ閿泦鍚堥噷鏄惁鏈?Alt锛堝喅瀹氳蛋 SYSKEY* 杩樻槸 KEY*锛夈€?*/
+function hasAlt(modifiers) {
+  return modifiers.some((vk) => SYS_MODIFIER_VKS.has(vk));
+}
+
+/**
+ * 璧颁竴閬嶄慨楗伴敭鐨?VirtualKeyState锛屼緵璋冪敤鏂瑰０鏄?璋冪敤鏈熼棿淇グ閿瑙嗕负鎸変笅"銆? *
+ * 鍏抽敭璇氬疄璇存槑锛歚PostMessageW` **涓嶄慨鏀圭湡瀹炵殑閿洏鐘舵€佽〃**锛屾墍浠ョ洰鏍囩獥鍙ｅ湪
+ * 澶勭悊 WM_KEYDOWN(0x41) 鏃惰嫢鍘绘煡 `GetKeyState(VK_CONTROL)`锛岀湅鍒扮殑鏄?*鐢ㄦ埛鐗╃悊
+ * 閿洏鐨勭湡瀹炵姸鎬?*锛岃€屼笉鏄垜浠ā鎷熷嚭鏉ョ殑銆傚洜姝わ細
+ *   - 瀵圭粷澶у鏁扮▼搴忥紙璁颁簨鏈€佽祫婧愮鐞嗗櫒銆佹祻瑙堝櫒姝ｆ枃锛夋棤褰卞搷锛氬畠浠敤
+ *     "WM_KEYDOWN 鐨?vk 鏄?A 涓?lParam bit29/淇グ閿秷鎭湪鍓?鏉ュ垽鏂揩鎹烽敭锛? *   - 瀵瑰皯鏁颁弗鏍间緷璧?`GetKeyState` 鐨勬帶浠讹紙閮ㄥ垎鑰佸紡 MFC 缃戞牸銆佹煇浜涙父鎴忓唴
+ *     UI锛夊垯鍙兘鍒ゆ柇澶辫触銆? * 鏈ā鍧楁妸杩欎竴浜嬪疄閫氳繃 `modifierStateNote` 瀛楁鏄惧紡鏆撮湶缁欒皟鐢ㄦ柟锛屼笉鍋囪涓€鑷淬€? */
+function modifierStateNote(modifiers) {
+  if (modifiers.length === 0) return undefined;
+  const names = modifiers
+    .map((vk) => {
+      if (vk === VK.CONTROL) return 'Ctrl';
+      if (vk === VK.SHIFT) return 'Shift';
+      if (vk === VK.MENU) return 'Alt';
+      if (vk === VK.LWIN) return 'Win';
+      return `vk:${vk}`;
+    })
+    .join('+');
+  return (
+    `PostMessage does not alter the real keyboard state: while ${names} messages are posted, ` +
+    'GetKeyState() inside the target still reports the user\'s physical keyboard. ' +
+    'Programs that read the modifier from the WM_KEYDOWN sequence work; programs that poll ' +
+    'GetKeyState() may not.'
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 娑堟伅鎶曢€掑師璇?// ---------------------------------------------------------------------------
+
+/**
+ * 缁熶竴鐨勬姇閫掑櫒銆傞粯璁?`PostMessageW`锛堝紓姝ャ€佷笉闃诲銆佷笉鎶㈢劍鐐癸級锛? * `mode:'send'` 鏃剁敤 `SendMessageW`锛堝悓姝ャ€佷細闃诲鐩村埌鐩爣澶勭悊瀹岋紝鐢ㄤ簬闄嶇骇璺緞锛夈€? */
+function deliver(loaded, hwnd, message, wParam, lParam, mode) {
+  const target = toHwnd(hwnd);
+  const wp = toUint32(wParam);
+  const lp = toInt32(lParam);
+  if (mode === 'send') {
+    const result = loaded.SendMessageW(target, message, wp, lp);
+    return { sent: 1, posted: 0, lastResult: Number(result) };
+  }
+  const ok = loaded.PostMessageW(target, message, wp, lp);
+  return { sent: ok === true ? 1 : 0, posted: ok === true ? 1 : 0, lastResult: ok === true ? 1 : 0 };
+}
+
+/** 绱姞鍣紝璁╂瘡涓姩浣滈兘鑳芥姤鍑?瀹為檯鎶曢€掍簡澶氬皯鏉?銆?*/
+function createCounter() {
+  return { posted: 0, failed: 0, sent: 0, messages: [] };
+}
+
+function record(counter, outcome, message, detail) {
+  counter.posted += outcome.posted;
+  counter.sent += outcome.sent;
+  if (outcome.sent === 0) counter.failed += 1;
+  if (counter.messages.length < 64) {
+    counter.messages.push({ message: `0x${message.toString(16).padStart(4, '0')}`, ...detail, ok: outcome.sent > 0 });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 绐楀彛鏌ヨ涓庡墠缃噯澶?// ---------------------------------------------------------------------------
+
+/** 璇荤獥鍙ｇ被鍚嶃€?*/
+function classNameOf(loaded, hwnd) {
+  return readWide((h, buf, max) => loaded.GetClassNameW(h, buf, max), hwnd, 256);
+}
+
+/** 璇荤獥鍙ｆ爣棰樸€?*/
+function titleOf(loaded, hwnd) {
+  try {
+    if (loaded.GetWindowTextW === undefined) return '';
+    const max = 1024;
+    const buffer = Buffer.alloc(max * 2);
+    const length = loaded.GetWindowTextW(hwnd, buffer, max);
+    if (!Number.isFinite(length) || length <= 0) return '';
+    return buffer.toString('utf16le', 0, length * 2);
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * 鐩爣杩涚▼鍙墽琛屾枃浠惰矾寰?鈥斺€?浠呯敤浜庡璁″睍绀恒€? *
+ * native.js 鐩墠涓嶅鍑?OpenProcess / QueryFullProcessImageNameW / CloseHandle锛? * 鍥犳杩欓噷鍦ㄧ己灏戠粦瀹氭椂鐩存帴杩斿洖 `undefined`锛?*涓嶆姏寮傚父銆佷笉鑷琛ョ粦**锛夈€? * `describeSensitivity()` 宸叉嵁姝ゆ妸"鍩轰簬鏄犲儚鍚?鐨勫垽鏂檷绾т负鍙€夐」銆? */
+function imageNameOf(loaded, pid) {
+  try {
+    const openProcess = loaded.OpenProcess;
+    const queryName = loaded.QueryFullProcessImageNameW;
+    const closeHandle = loaded.CloseHandle;
+    if (openProcess === undefined || queryName === undefined || closeHandle === undefined) {
+      return undefined;
+    }
+    const PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+    const handle = openProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, toUint32(pid));
+    if (handle === 0 || handle === null || handle === undefined) return undefined;
+    try {
+      const buffer = Buffer.alloc(1024 * 2);
+      const size = Buffer.alloc(4);
+      size.writeUInt32LE(1024, 0);
+      if (queryName(handle, 0, buffer, size) !== true) return undefined;
+      const chars = size.readUInt32LE(0);
+      return buffer.toString('utf16le', 0, chars * 2);
+    } finally {
+      closeHandle(handle);
+    }
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * 鐩爣绐楀彛蹇収锛氫竴娆℃€ф嬁鍒拌皟鐢ㄦ柟鍋氬喅绛栭渶瑕佺殑鍏ㄩ儴瀹㈣淇℃伅銆? *
+ * @returns `{ ok:true, hwnd, className, title, pid, image, rect, client, visible, enabled,
+ *            iconic, hung, foreground, isForeground, isDpiAwareUnknown, problems:[] }`
+ *          鎴?`{ ok:false, reason }`銆傜粷涓嶆姏寮傚父銆? */
+export function probeWindow(hwnd) {
+  try {
+    const loaded = requireBindings();
+    const target = toHwnd(hwnd);
+    if (!Number.isFinite(target) || target === 0) {
+      return { ok: false, reason: `invalid hwnd: ${String(hwnd)}` };
+    }
+    if (loaded.IsWindow(target) !== true) {
+      return { ok: false, reason: `hwnd ${target} is not a window (IsWindow=false)` };
+    }
+    const pid = windowPid(loaded, target);
+    const problems = [];
+    const visible = loaded.IsWindowVisible(target) === true;
+    const enabled = loaded.IsWindowEnabled(target) === true;
+    const iconic = loaded.IsIconic(target) === true;
+    const hung = loaded.IsHungAppWindow !== undefined && loaded.IsHungAppWindow(target) === true;
+    if (!visible) problems.push('window is not visible');
+    if (!enabled) problems.push('window is disabled');
+    if (iconic) problems.push('window is minimized');
+    if (hung) problems.push('window is not responding (IsHungAppWindow)');
+    return {
+      ok: true,
+      hwnd: target,
+      className: classNameOf(loaded, target),
+      title: titleOf(loaded, target),
+      pid,
+      image: imageNameOf(loaded, pid),      rect: windowRect(loaded, target),
+      client: clientRect(loaded, target),
+      visible,
+      enabled,
+      iconic,
+      hung,
+      foreground: Number(loaded.GetForegroundWindow()),
+      isForeground: Number(loaded.GetForegroundWindow()) === target,
+      problems,
+    };
+  } catch (error) {
+    return { ok: false, reason: error?.dshReason ?? error?.message ?? String(error) };
+  }
+}
+
+/**
+ * 璁╃洰鏍囩獥鍙?灏介噺鍙帴鏀惰緭鍏?锛屼笖**榛樿涓嶆姠鐒︾偣**銆? *
+ * 榛樿鍙仛闈炰镜鍏ュ姩浣滐細
+ *   - 鏈€灏忓寲 鈫?`ShowWindow(SW_RESTORE)`锛堟仮澶嶇獥鍙ｏ紝浼氭敼鍙樺彲瑙佺姸鎬佷絾涓嶆敼鐒︾偣锛夛紱
+ *   - `SetWindowPos(HWND_TOP, SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE)` 鎶?Z 搴忋€? *
+ * @param options.allowFocusSteal - **闄嶇骇璺緞**銆備负 true 鏃惰皟鐢?`SetForegroundWindow`锛? *   **浼氭姠璧扮敤鎴峰綋鍓嶇劍鐐?*銆傝繑鍥炵粨鏋滈噷 `stoleFocus: true` 鏄庣‘鏍囨敞銆? * @param options.attachThreadInput - 閰嶅悎 allowFocusSteal锛氬厛 AttachThreadInput 鍒? *   鐩爣绾跨▼锛屾彁楂?SetForegroundWindow 鎴愬姛鐜囷紙Windows 鍓嶅彴閿侀檺鍒讹級銆? */
+export function ensureTargetReady(hwnd, options = {}) {
+  const { allowFocusSteal = false, restore = true, raiseZ = true, attachThreadInput = true } = options;
+  try {
+    const loaded = requireBindings();
+    const before = probeWindow(hwnd);
+    if (before.ok !== true) return before;
+
+    const actions = [];
+    const target = before.hwnd;
+    const foregroundBefore = before.foreground;
+
+    if (restore && before.iconic === true && loaded.ShowWindow !== undefined) {
+      const ok = loaded.ShowWindow(target, SW.RESTORE) === true;
+      actions.push({ action: 'ShowWindow(SW_RESTORE)', ok, note: 'restored a minimized window' });
+    }
+
+    if (raiseZ && loaded.SetWindowPos !== undefined) {
+      const HWND_TOP = 0;
+      const flags = SWP.NOMOVE | SWP.NOSIZE | SWP.NOACTIVATE;
+      const ok = loaded.SetWindowPos(target, HWND_TOP, 0, 0, 0, 0, flags) === true;
+      actions.push({ action: 'SetWindowPos(HWND_TOP, NOACTIVATE)', ok, note: 'raises z-order without activation' });
+    }
+
+    let stoleFocus = false;
+    if (allowFocusSteal === true && loaded.SetForegroundWindow !== undefined) {
+      const currentThread = Number(loaded.GetCurrentThreadId !== undefined ? loaded.GetCurrentThreadId() : 0);
+      const targetThread = Number(loaded.GetWindowThreadProcessId(target, Buffer.alloc(4)));
+      let attached = false;
+      if (attachThreadInput && currentThread !== 0 && targetThread !== 0 && loaded.AttachThreadInput !== undefined) {
+        attached = loaded.AttachThreadInput(currentThread, targetThread, true) === true;
+      }
+      try {
+        stoleFocus = loaded.SetForegroundWindow(target) === true;
+      } finally {
+        if (attached) loaded.AttachThreadInput(currentThread, targetThread, false);
+      }
+      actions.push({
+        action: 'SetForegroundWindow',
+        ok: stoleFocus,
+        note: 'FOCUS-STEALING fallback: the user\'s previous window lost foreground',
+      });
+    }
+
+    const after = probeWindow(target);
+    return {
+      ok: true,
+      hwnd: target,
+      ready: after.ok === true && after.visible === true && after.enabled === true && after.hung !== true,
+      stoleFocus,
+      focusWarning: stoleFocus
+        ? 'ensureTargetReady stole the foreground window (allowFocusSteal:true). The user\'s active window changed.'
+        : undefined,
+      foregroundBefore,
+      foregroundAfter: Number(loaded.GetForegroundWindow()),
+      actions,
+      probe: after,
+      inputSensitiveCaveat: describeSensitivity(after),
+    };
+  } catch (error) {
+    return { ok: false, reason: error?.dshReason ?? error?.message ?? String(error) };
+  }
+}
+
+/**
+ * 鏍规嵁绐楀彛蹇収缁欏嚭"PostMessage 鏄惁鍙兘鐢熸晥"鐨勮瘹瀹炶瘎浼般€? * 杩欐槸鍚彂寮忓垽鏂紝涓嶆槸淇濊瘉銆? *
+ * 鍙﹀浼氭娴?*鏄惁涓虹紪杈戞帶浠?*锛堝喅瀹氳兘涓嶈蛋鍙潬鐨?EM_* 璺緞锛夛紝浠ュ強缁欏嚭
+ * `wmKeydownReliability` 鈥斺€?鎻愰啋璋冪敤鏂?`WM_KEYDOWN` 绫绘寜閿湪绾?PostMessage 涓? * 鏅亶涓嶅彲闈狅紙缁曡繃 TranslateMessage锛夛紝瀛楃璧?WM_CHAR 鎵嶅彲闈犮€? */
+export function describeSensitivity(probe) {
+  if (probe?.ok !== true) return { likely: 'unknown', reasons: ['no probe data'] };
+  const reasons = [];
+  let likely = 'yes';
+  const cls = String(probe.className ?? '');
+  const image = String(probe.image ?? '').toLowerCase();
+
+  if (probe.hung === true) {
+    reasons.push('window is hung: posted messages will not be pumped');
+    likely = 'no';
+  }
+  if (probe.enabled === false) {
+    reasons.push('window is disabled: input messages are ignored');
+    likely = 'no';
+  }
+  if (/ApplicationFrameWindow|Windows\.UI\.Core\.CoreWindow|WindowsUIView/.test(cls)) {
+    reasons.push('UWP/XAML window: input goes through CoreWindow, WM_* injection is unreliable');
+    likely = 'unlikely';
+  }
+  if (/Intermediate D3D Window|Chrome_WidgetWin/.test(cls)) {
+    reasons.push('Chromium/Electron content surface: renderer owns input routing, WM_MOUSE* may be ignored');
+    if (likely === 'yes') likely = 'unlikely';
+  }
+  if (/CASCADIA|ConsoleWindowClass/.test(cls)) {
+    reasons.push('terminal host: input flows through ConPTY, WM_CHAR injection is unreliable');
+    if (likely === 'yes') likely = 'unlikely';
+  }
+  if (/^(cmd|powershell|pwsh|windowsterminal|conhost)\.exe$/.test(image.split('\\').pop() ?? '')) {
+    reasons.push('terminal-backed host process');
+    if (likely === 'yes') likely = 'unlikely';
+  }
+
+  // 缂栬緫鎺т欢璇嗗埆锛氬喅瀹氭槸鍚︽湁鍙潬鐨?EM_* 璺緞鍙敤銆?  let editControl = false;
+  try {
+    const info = isEditControl(probe.hwnd);
+    editControl = info.ok === true && info.supportsEditMessages === true;
+  } catch {
+    editControl = false;
+  }
+  if (editControl) {
+    reasons.push('edit control detected: EM_SETSEL/EM_REPLACESEL/EM_GETLINE are available and reliable for ' +
+      'selection, replacement and reading 鈥?prefer them over Ctrl+A/Delete/arrows');
+  }
+
+  return {
+    likely,
+    reasons,
+    editControl,
+    editControlApi: editControl
+      ? ['selectAll', 'replaceSelection', 'clearSelection', 'getSelection', 'readTextViaMessages', 'edit']
+      : [],
+    /**
+     * WM_CHAR锛堝瓧绗︼級涓?WM_MOUSE*锛堥紶鏍囷級鐢辩獥鍙ｈ繃绋嬬洿鎺ュ鐞?鈫?鍙潬銆?     * WM_KEYDOWN 鐨勯潪瀛楃璇箟渚濊禆娑堟伅寰幆鐨?TranslateMessage 鈫?绾?PostMessage 涓嬩笉鍙潬銆?     */
+    messageReliability: {
+      wmChar: 'reliable',
+      wmMouse: 'reliable',
+      wmKeydownNonCharacter: 'unreliable',
+      wmKeydownWhy: 'PostMessage bypasses the receiving thread\'s TranslateMessage; measured on real notepad, ' +
+        'Delete/Home/End/arrows/Ctrl+A were accepted but had no effect',
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// 鍧愭爣
+// ---------------------------------------------------------------------------
+
+/**
+ * 瀹㈡埛鍖哄潗鏍?鈫?灞忓箷鍧愭爣銆? * @returns `{ ok, x, y }` 鎴?`{ ok:false, reason }`
+ */
+export function clientToScreen(hwnd, x, y) {
+  try {
+    const loaded = requireBindings();
+    const buffer = Buffer.alloc(8);
+    buffer.writeInt32LE(toInt32(x), 0);
+    buffer.writeInt32LE(toInt32(y), 4);
+    if (loaded.ClientToScreen(toHwnd(hwnd), buffer) !== true) {
+      return { ok: false, reason: `ClientToScreen failed for hwnd ${hwnd}` };
+    }
+    return { ok: true, x: buffer.readInt32LE(0), y: buffer.readInt32LE(4) };
+  } catch (error) {
+    return { ok: false, reason: error?.dshReason ?? error?.message ?? String(error) };
+  }
+}
+
+/** 灞忓箷鍧愭爣 鈫?瀹㈡埛鍖哄潗鏍囥€?*/
+export function screenToClient(hwnd, x, y) {
+  try {
+    const loaded = requireBindings();
+    const buffer = Buffer.alloc(8);
+    buffer.writeInt32LE(toInt32(x), 0);
+    buffer.writeInt32LE(toInt32(y), 4);
+    if (loaded.ScreenToClient(toHwnd(hwnd), buffer) !== true) {
+      return { ok: false, reason: `ScreenToClient failed for hwnd ${hwnd}` };
+    }
+    return { ok: true, x: buffer.readInt32LE(0), y: buffer.readInt32LE(4) };
+  } catch (error) {
+    return { ok: false, reason: error?.dshReason ?? error?.message ?? String(error) };
+  }
+}
+
+/**
+ * 鎶婅皟鐢ㄦ柟缁欑殑鍧愭爣缁熶竴鎴?*鐩爣绐楀彛瀹㈡埛鍖哄潗鏍?*銆? *
+ * - `space:'client'`锛堥粯璁わ級锛氬師鏍蜂娇鐢紙璇箟灏辨槸"鐩稿鐩爣绐楀彛瀹㈡埛鍖?锛夈€? * - `space:'screen'`锛歋creenToClient 杞崲銆? * - `space:'window'`锛氱浉瀵圭獥鍙ｅ妗嗭紝鍑忓幓瀹㈡埛鍖哄湪绐楀彛鍐呯殑鍋忕Щ銆? *
+ * 鍘嗗彶鍏煎锛氳€佽皟鐢ㄦ柟鍐欑殑鏄?`{ client: true }`锛屽洜涓洪粯璁ゅ凡鏄?client锛岀瓑浠蜂簬涓嶄紶銆? */
+export function normalizePoint(hwnd, x, y, options = {}) {
+  const space = options.space ?? 'client';
+  if (space === 'client') {
+    return { ok: true, x: toInt32(x), y: toInt32(y), space: 'client' };
+  }
+  if (space === 'screen') {
+    const converted = screenToClient(hwnd, x, y);
+    if (converted.ok !== true) return converted;
+    return { ok: true, x: converted.x, y: converted.y, space: 'client', from: 'screen' };
+  }
+  if (space === 'window') {
+    const screen = clientToScreen(hwnd, 0, 0);
+    if (screen.ok !== true) return screen;
+    const rect = probeWindow(hwnd);
+    if (rect.ok !== true) return rect;
+    // 瀹㈡埛鍖哄師鐐瑰湪灞忓箷涓婄殑浣嶇疆锛坰creen锛夊噺鍘荤獥鍙ｅ乏涓婅鍦ㄥ睆骞曚笂鐨勪綅缃紙rect.left/top锛?    // 灏辨槸瀹㈡埛鍖虹浉瀵圭獥鍙ｅ妗嗙殑鍋忕Щ銆傜獥鍙ｅ潗鏍?= 瀹㈡埛鍖哄潗鏍?+ 璇ュ亸绉汇€?    const offsetX = screen.x - rect.rect.left;
+    const offsetY = screen.y - rect.rect.top;
+    return {
+      ok: true,
+      x: toInt32(x) + offsetX,
+      y: toInt32(y) + offsetY,
+      space: 'client',
+      from: 'window',
+      offset: { x: offsetX, y: offsetY },
+    };
+  }
+  return { ok: false, reason: `unknown coordinate space: ${String(space)}` };
+}
+
+// ---------------------------------------------------------------------------
+// 褰撳墠淇グ閿姸鎬?// ---------------------------------------------------------------------------
+
+/** 鍦?lParam/浣嶅煙涓?wParam 涓弽鏄?姝ゅ埢鐢ㄦ埛鐪熷疄鎸変笅鐨勪慨楗伴敭"銆?*/
+function realModifierState(loaded) {
+  let mk = 0;
+  const pressed = [];
+  try {
+    if (loaded.GetAsyncKeyState !== undefined) {
+      const query = (vk, flag, name) => {
+        const state = Number(loaded.GetAsyncKeyState(vk));
+        // 楂樹綅 0x8000 = 褰撳墠鐗╃悊鎸変笅銆傝繖淇濊瘉鎴戜滑鐨?wParam 涓庣敤鎴风湡瀹為敭鐩樹竴鑷达紝
+        // 鐩爣绋嬪簭鑻ョ敤 GetKeyState(MK_*) 鍒ゆ柇淇グ閿紝鐪嬪埌鐨勪笌鐢ㄦ埛鎵€瑙佺浉鍚屻€?        if ((state & 0x8000) !== 0) {
+          mk |= flag;
+          pressed.push(name);
+        }
+      };
+      query(VK.SHIFT, MK.SHIFT, 'shift');
+      query(VK.CONTROL, MK.CONTROL, 'ctrl');
+      query(0x04, 0, 'mbutton'); // VK_MBUTTON
+      query(VK.MENU ?? 0x12, 0, 'alt');
+    }
+  } catch {
+    // 璇讳笉鍒扮湡瀹為敭鐩樼姸鎬佹椂鎸?鏃犱慨楗伴敭"澶勭悊锛涜繖鍙奖鍝?wParam 鐨勪慨楗颁綅锛屼笉褰卞搷涓婚敭鎶曢€掋€?  }
+  return { mk, pressed, altDown: pressed.includes('alt') };
+}
+
+// ---------------------------------------------------------------------------
+// 榧犳爣
+// ---------------------------------------------------------------------------
+
+const BUTTONS = {
+  left: { down: MSG.LBUTTONDOWN, up: MSG.LBUTTONUP, dbl: MSG.LBUTTONDBLCLK, flag: MK.LBUTTON },
+  right: { down: MSG.RBUTTONDOWN, up: MSG.RBUTTONUP, dbl: MSG.RBUTTONDBLCLK, flag: MK.RBUTTON },
+  middle: { down: MSG.MBUTTONDOWN, up: MSG.MBUTTONUP, dbl: MSG.MBUTTONDBLCLK, flag: MK.MBUTTON },
+};
+
+/** 榧犳爣娑堟伅鐨勫彲閫夎涓恒€?*/
+const DEFAULT_TIMING = { moveSettleMs: 0, clickHoldMs: 0, doubleClickMs: 0, afterMs: 0 };
+
+function sleepSync(ms) {
+  const delay = toInt32(ms);
+  if (delay <= 0) return;
+  // 鐢?Atomics.wait 鍋氬悓姝ョ潯鐪狅紝姣斿繖绛夌簿纭笖涓嶅崰 CPU銆?  const shared = new Int32Array(new SharedArrayBuffer(4));
+  Atomics.wait(shared, 0, 0, delay);
+}
+
+/**
+ * 绉诲姩铏氭嫙榧犳爣锛堝彧鎶曢€?WM_MOUSEMOVE锛?*涓嶅姩鐪熷疄鍏夋爣**锛夈€? *
+ * @param hwnd - 鐩爣绐楀彛
+ * @param x,y - 榛樿鏄?*瀹㈡埛鍖哄潗鏍?*
+ * @param options.space - 'client'锛堥粯璁わ級| 'screen' | 'window'
+ * @param options.deliver - 'post'锛堥粯璁わ級| 'send'锛堝悓姝ワ紝闄嶇骇璺緞锛? * @param options.button - 绉诲姩鏃舵姤鍛婄殑鎸夐敭鐘舵€侊細'none'|'left'|'right'|'middle'
+ * @returns `{ ok, posted, x, y, screen:{x,y}, lParam }`
+ */
+export function move(hwnd, x, y, options = {}) {
+  const counter = createCounter();
+  try {
+    const loaded = requireBindings();
+    const probe = probeWindow(hwnd);
+    if (probe.ok !== true) return probe;
+    const point = normalizePoint(probe.hwnd, x, y, options);
+    if (point.ok !== true) return point;
+
+    const mode = options.deliver === 'send' ? 'send' : 'post';
+    const packed = packMouseLParam(point.x, point.y);
+    const real = realModifierState(loaded);
+    let wParam = real.mk;
+    const button = options.button;
+    if (button !== undefined && BUTTONS[button] !== undefined) wParam |= BUTTONS[button].flag;
+
+    const outcome = deliver(loaded, probe.hwnd, MSG.MOUSEMOVE, wParam, packed.lp, mode);
+    record(counter, outcome, MSG.MOUSEMOVE, { x: packed.x, y: packed.y, kind: 'mousemove' });
+
+    const screen = clientToScreen(probe.hwnd, packed.x, packed.y);
+    return {
+      ok: counter.posted > 0 || counter.sent > 0,
+      hwnd: probe.hwnd,
+      posted: counter.posted,
+      sent: counter.sent,
+      failed: counter.failed,
+      x: packed.x,
+      y: packed.y,
+      space: 'client',
+      screen: screen.ok === true ? { x: screen.x, y: screen.y } : undefined,
+      lParam: packed.lp,
+      cursorUntouched: true,
+      messages: counter.messages,
+      reason: counter.failed > 0 ? `PostMessageW failed for hwnd ${probe.hwnd} (UIPI or dead window)` : undefined,
+    };
+  } catch (error) {
+    return { ok: false, reason: error?.dshReason ?? error?.message ?? String(error), posted: counter.posted };
+  }
+}
+
+/**
+ * 铏氭嫙榧犳爣鐐瑰嚮銆? *
+ * 鎶曢€掑簭鍒楋紙POST 妯″紡涓嬶級锛歚WM_MOUSEMOVE` 鈫?`WM_LBUTTONDOWN` 鈫?`WM_LBUTTONUP`锛? * 鍙屽嚮鏃朵腑闂村啀琛?`WM_LBUTTONDBLCLK`銆? *
+ * **缁濅笉璋冪敤 SetCursorPos / SendInput** 鈥斺€?鐪熷疄鍏夋爣淇濇寔涓嶅姩銆? *
+ * @param options.button - 'left'锛堥粯璁わ級| 'right' | 'middle'
+ * @param options.double - 鏄惁鍙屽嚮锛堟姇閫?LBUTTONDBLCLK锛? * @param options.space - 'client'锛堥粯璁わ級| 'screen' | 'window'
+ * @param options.deliver - 'post'锛堥粯璁わ紝涓嶆姠鐒︾偣锛墊 'send'锛堝悓姝ワ紝闄嶇骇璺緞锛? * @param options.foreground - **浼氭姠鐒︾偣**銆倀rue 鏃跺厛 ensureTargetReady({allowFocusSteal:true})
+ *                            鍐嶆敼鐢?SendMessage 鍚屾鎶曢€掋€? * @param options.holdMs - down 涓?up 涔嬮棿鐨勭瓑寰咃紙榛樿 0锛? * @returns `{ ok, posted, sequence:[...], x, y, screen, cursorUntouched, ... }`
+ */
+export function click(hwnd, x, y, options = {}) {
+  const counter = createCounter();
+  try {
+    const loaded = requireBindings();
+    const buttonName = options.button ?? 'left';
+    const button = BUTTONS[buttonName];
+    if (button === undefined) {
+      return { ok: false, reason: `unknown mouse button: ${String(buttonName)} (use left|right|middle)` };
+    }
+    const probe = probeWindow(hwnd);
+    if (probe.ok !== true) return probe;
+    const point = normalizePoint(probe.hwnd, x, y, options);
+    if (point.ok !== true) return point;
+
+    const foreground = options.foreground === true;
+    let mode = options.deliver === 'send' ? 'send' : 'post';
+    let focus = undefined;
+    if (foreground) {
+      focus = ensureTargetReady(probe.hwnd, { allowFocusSteal: true });
+      mode = 'send';
+    }
+
+    const holdMs = options.holdMs ?? DEFAULT_TIMING.clickHoldMs;
+    const doubleMs = options.doubleClickMs ?? DEFAULT_TIMING.doubleClickMs;
+    const packed = packMouseLParam(point.x, point.y);
+    const base = realModifierState(loaded).mk;
+    const sequence = [];
+
+    const send = (message, extraFlag) => {
+      const outcome = deliver(loaded, probe.hwnd, message, base | (extraFlag ?? 0), packed.lp, mode);
+      record(counter, outcome, message, { x: packed.x, y: packed.y, kind: 'mouse' });
+      sequence.push({ message: `0x${message.toString(16).padStart(4, '0')}`, ok: outcome.sent > 0 });
+    };
+
+    send(MSG.MOUSEMOVE, 0);
+    if (options.double === true) {
+      // 鍙屽嚮璇箟锛欴OWN/UP/DOWN(DBLCLK)/UP 鈥斺€?Windows 鐢?DBLCLK 鏇夸唬绗簩娆?DOWN銆?      send(button.down, button.flag);
+      sleepSync(holdMs);
+      send(button.up, 0);
+      sleepSync(doubleMs);
+      send(button.dbl, button.flag);
+      sleepSync(holdMs);
+      send(button.up, 0);
+    } else {
+      send(button.down, button.flag);
+      if (holdMs > 0) sleepSync(holdMs);
+      send(button.up, 0);
+    }
+
+    const screen = clientToScreen(probe.hwnd, packed.x, packed.y);
+    const settle = options.settleMs ?? 0;
+    if (settle > 0) sleepSync(settle);
+    return {
+      ok: counter.failed === 0,
+      hwnd: probe.hwnd,
+      button: buttonName,
+      double: options.double === true,
+      posted: counter.posted,
+      sent: counter.sent,
+      failed: counter.failed,
+      x: packed.x,
+      y: packed.y,
+      space: 'client',
+      screen: screen.ok === true ? { x: screen.x, y: screen.y } : undefined,
+      lParam: packed.lp,
+      sequence,
+      deliver: mode,
+      cursorUntouched: true,
+      stoleFocus: focus !== undefined ? focus.stoleFocus : false,
+      focusWarning: focus?.focusWarning,
+      messages: counter.messages,
+      reason: counter.failed > 0 ? `PostMessageW failed for hwnd ${probe.hwnd} (UIPI or dead window)` : undefined,
+    };
+  } catch (error) {
+    return { ok: false, reason: error?.dshReason ?? error?.message ?? String(error), posted: counter.posted };
+  }
+}
+
+/**
+ * 婊氳疆銆俙delta` 鍗曚綅鏄?WHEEL_DELTA 鐨勫€嶆暟锛堟=涓婃粴/鏀惧ぇ锛岃礋=涓嬫粴锛夈€? * `WM_MOUSEWHEEL` 鐨?lParam 涓庡叾瀹冮紶鏍囨秷鎭笉鍚岋細瀹冩槸**灞忓箷鍧愭爣**锛寃Param 楂樺瓧鏄? * 鏈夌鍙风殑 delta 浣庡瓧鏄湁绗﹀彿鐨勬寜閿姸鎬併€? *
+ * @param options.horizontal - true 鏃跺彂 WM_MOUSEHWHEEL
+ */
+export function scroll(hwnd, delta, options = {}) {
+  const counter = createCounter();
+  try {
+    const loaded = requireBindings();
+    const probe = probeWindow(hwnd);
+    if (probe.ok !== true) return probe;
+    const x = options.x ?? Math.floor((probe.client?.width ?? 0) / 2);
+    const y = options.y ?? Math.floor((probe.client?.height ?? 0) / 2);
+    const point = normalizePoint(probe.hwnd, x, y, options);
+    if (point.ok !== true) return point;
+
+    const screen = clientToScreen(probe.hwnd, point.x, point.y);
+    if (screen.ok !== true) return screen;
+
+    const WHEEL_DELTA = options.wheelDelta ?? 120;
+    const notches = toInt32(delta);
+    const wparamDelta = toInt32(notches * WHEEL_DELTA);
+    const real = realModifierState(loaded);
+    const message = options.horizontal === true ? MSG.MOUSEHWHEEL : MSG.MOUSEWHEEL;
+    const mode = options.foreground === true ? 'send' : (options.deliver === 'send' ? 'send' : 'post');
+
+    // wParam = (delta << 16) | keyState 鈥斺€?楂樺瓧鏄?*鏈夌鍙?* delta銆?    const wParam = (((wparamDelta & 0xffff) << 16) | (real.mk & 0xffff)) >>> 0;
+    const packed = packMouseLParam(screen.x, screen.y); // 娉ㄦ剰锛氬睆骞曞潗鏍?    const outcome = deliver(loaded, probe.hwnd, message, wParam, packed.lp, mode);
+    record(counter, outcome, message, { delta: notches, screen: { x: screen.x, y: screen.y }, kind: 'wheel' });
+
+    return {
+      ok: counter.failed === 0,
+      hwnd: probe.hwnd,
+      delta: notches,
+      wheelDelta: wparamDelta,
+      posted: counter.posted,
+      sent: counter.sent,
+      failed: counter.failed,
+      x: point.x,
+      y: point.y,
+      screen: { x: screen.x, y: screen.y },
+      wParam,
+      lParam: packed.lp,
+      horizontal: options.horizontal === true,
+      cursorUntouched: true,
+      messages: counter.messages,
+      note: 'WM_MOUSEWHEEL carries screen coordinates in lParam (unlike other mouse messages)',
+      reason: counter.failed > 0 ? `PostMessageW failed for hwnd ${probe.hwnd} (UIPI or dead window)` : undefined,
+    };
+  } catch (error) {
+    return { ok: false, reason: error?.dshReason ?? error?.message ?? String(error), posted: counter.posted };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 缂栬緫鎺т欢鍙潬璺緞锛圗M_* 娑堟伅锛?//
+// ## 涓轰粈涔堥渶瑕佽繖鏉¤矾
+//
+// `PostMessage` 鎶婃秷鎭洿鎺ュ杩涚洰鏍囩獥鍙ｇ殑**娑堟伅闃熷垪**锛屽畠**缁曡繃鎺ユ敹绾跨▼娑堟伅寰幆閲岀殑
+// `TranslateMessage`**銆傚悗鏋滐紙鍧囧凡鐢ㄧ湡瀹?notepad 鎺у埗鍙橀噺瀹炴祴锛夛細
+//
+//   | 娑堟伅绫诲瀷                     | 缁?PostMessage | 鍘熷洜 |
+//   |------------------------------|----------------|------|
+//   | `WM_CHAR`锛堝瓧绗︼級             | **鍙潬**       | 绐楀彛杩囩▼鐩存帴澶勭悊 |
+//   | `WM_MOUSE*`锛堥紶鏍囷級           | **鍙潬**       | 绐楀彛杩囩▼鐩存帴澶勭悊 |
+//   | `WM_KEYDOWN` 闈炲瓧绗﹁涔?      | **涓嶅彲闈?*     | 渚濊禆娑堟伅寰幆缈昏瘧 |
+//
+// 瀹炴祴璇佹嵁锛歚Ctrl+A` 涔嬪悗 notepad 閫夊尯浠嶆槸 `{10,10}`锛堟彃鍏ョ偣鏈姩锛夛紝鑰屽唴瀹?// 鍙樻垚浜?`"ABCDEFGHIJa"` 鈥斺€?澶氬嚭鐨勫皬鍐?`a` 璇存槑**淇グ閿病鐢熸晥锛宍a` 琚綋鎴愭櫘閫?// 瀛楃鎻掑叆浜?*锛沗Delete` / `Home` / `End` / 鏂瑰悜閿悓鏍凤細娑堟伅閮芥姇閫掓垚鍔?// 锛坄WM_KEYDOWN` 杩斿洖 true锛夛紝浣嗛€夊尯璧锋姘歌繙绛変簬鎻掑叆鐐癸紝**鏍规湰娌℃湁褰㈡垚閫夊尯**銆?//
+// 鎵€浠ュ**缂栬緫鎺т欢**锛屾秹鍙?閫夊尯 + 闈炲瓧绗﹂敭"鐨勬搷浣滃簲璇ヨ蛋 `EM_*` 娑堟伅 鈥斺€?// 杩欎簺鏄帶浠惰嚜韬洿鎺ュ鐞嗙殑娑堟伅锛屼笉缁忔秷鎭惊鐜炕璇戯紝瀹炴祴鍏ㄩ儴鍙潬锛?//   - `EM_SETSEL(0, -1)`          鈫?鐪熸鍏ㄩ€?//   - `EM_REPLACESEL(TRUE, text)`  鈫?鏇挎崲閫夊尯锛堢┖涓?= 鍒犻櫎锛?//   - `EM_GETSEL`                  鈫?璇诲洖閫夊尯锛岀敤浜?*楠岃瘉**鎿嶄綔鐪熺殑鐢熸晥
+// ---------------------------------------------------------------------------
+
+/** 缂栬緫鎺т欢娑堟伅锛堝潎鍙法杩涚▼宸ヤ綔锛孍DITTEXT/RichEdit 閫氱敤锛夈€?*/
+const EM = {
+  GETSEL: 0x00b0,
+  SETSEL: 0x00b1,
+  GETRECT: 0x00b2,
+  SCROLLCARET: 0x00b7,
+  GETLINECOUNT: 0x00ba,
+  GETLINE: 0x00c4,
+  REPLACESEL: 0x00c2,
+  SETLIMITTEXT: 0x00c5,
+  GETLIMITTEXT: 0x00d5,
+  SETMODIFY: 0x00b9,
+  GETMODIFY: 0x00b8,
+  LINEFROMCHAR: 0x00c9,
+  LINELENGTH: 0x00c3,
+  GETFIRSTVISIBLELINE: 0x00ce,
+  GETSEL_ALT: 0x00b0,
+  SETREADONLY: 0x00cf,
+  UNDO: 0x00c7,
+  SELECTALL_ALT: 0x00b1,
+  WM_CLEAR: 0x0303,
+  WM_COPY: 0x0301,
+  WM_CUT: 0x0300,
+  WM_PASTE: 0x0302,
+};
+
+/** 鍒ゅ畾绐楀彛鏄惁涓?鍙敤 EM_* 娑堟伅鎿嶄綔"鐨勭紪杈戞帶浠躲€?*/
+export function isEditControl(hwnd) {
+  try {
+    const loaded = requireBindings();
+    const target = toHwnd(hwnd);
+    if (loaded.IsWindow(target) !== true) return { ok: false, reason: `hwnd ${target} is not a window` };
+    const className = classNameOf(loaded, target);
+    const looksEditable = /^(Edit|RichEdit|RichEdit20W|RichEdit20A|RichEdit50W|RichEditD2DPT|RichEditD2D|TextInputHost)/i.test(className);
+    // 鐢?EM_GETLINECOUNT 鍋氫竴娆?*琛屼负鎺㈡祴**锛氶潪缂栬緫鎺т欢閫氬父杩斿洖 0 鎴栦笉鍝嶅簲銆?    const lineCount = Number(loaded.SendMessageW(target, EM.GETLINECOUNT, 0, 0));
+    const lineLength = Number(loaded.SendMessageW(target, EM.LINELENGTH, 0, 0));
+    const probeOk = Number.isFinite(lineCount) || Number.isFinite(lineLength);
+    return {
+      ok: true,
+      hwnd: target,
+      className,
+      looksEditable,
+      lineCount: Number.isFinite(lineCount) ? lineCount : undefined,
+      /**
+       * 鏄惁**鐪嬭捣鏉?*鑳借 EM_* 鍙潬鎿嶄綔銆傜被鍚嶅尮閰嶆槸涓讳緷鎹紱琛屼负鎺㈡祴浣滀负浣愯瘉
+       * 锛堟敞鎰忕┖缂栬緫鎺т欢杩斿洖 lineCount=1锛岄潪缂栬緫鎺т欢涔熷彲鑳借繑鍥?0锛屾墍浠ヤ笉鍗曢潬瀹冿級銆?       */
+      supportsEditMessages: looksEditable,
+      probeOk,
+    };
+  } catch (error) {
+    return { ok: false, reason: error?.dshReason ?? error?.message ?? String(error) };
+  }
+}
+
+/** 璇荤紪杈戞帶浠跺綋鍓嶉€夊尯銆傝繑鍥?`{ ok, start, end }`锛涢潪缂栬緫鎺т欢杩斿洖 `{ok:false}`銆?*/
+export function getSelection(hwnd) {
+  try {
+    const loaded = requireBindings();
+    const info = isEditControl(hwnd);
+    if (info.ok !== true) return info;
+    if (info.supportsEditMessages !== true) {
+      return { ok: false, reason: `hwnd ${info.hwnd} (class "${info.className}") is not an edit control; EM_* messages do not apply`, className: info.className };
+    }
+    const packed = Number(loaded.SendMessageW(info.hwnd, EM.GETSEL, 0, 0));
+    return {
+      ok: true,
+      hwnd: info.hwnd,
+      start: packed & 0xffff,
+      end: (packed >>> 16) & 0xffff,
+      collapsed: (packed & 0xffff) === ((packed >>> 16) & 0xffff),
+      className: info.className,
+    };
+  } catch (error) {
+    return { ok: false, reason: error?.dshReason ?? error?.message ?? String(error) };
+  }
+}
+
+/**
+ * **鍙潬鍏ㄩ€?* 鈥斺€?璧?`EM_SETSEL(0, -1)`锛岃€屼笉鏄?Ctrl+A 缁勫悎閿€? *
+ * 杩欐槸鏈ā鍧楀缂栬緫鎺т欢鐨?*棣栭€?*鍏ㄩ€夎矾寰勶細瀹炴祴 notepad 閫夊尯浠?`{10,10}` 鍙樻垚
+ * `{0,10}`锛岃€?`keyCombo(hwnd,'ctrl+a')` 閫夊尯瀹屽叏涓嶅姩锛堜笖浼氳鎻掍竴涓?'a'锛夈€? *
+ * @returns `{ ok, start, end, verified, method:'EM_SETSEL' }`
+ *          `verified` 鏄€氳繃 `EM_GETSEL` **鍥炶纭**閫夊尯鐪熺殑瑕嗙洊浜嗗唴瀹归暱搴︺€? */
+export function selectAll(hwnd, options = {}) {
+  try {
+    const loaded = requireBindings();
+    const info = isEditControl(hwnd);
+    if (info.ok !== true) return info;
+    if (info.supportsEditMessages !== true) {
+      return {
+        ok: false,
+        reason: `hwnd ${info.hwnd} (class "${info.className}") is not an edit control; EM_SETSEL does not apply`,
+        className: info.className,
+        fallback: "use keyCombo(hwnd,'ctrl+a') and expect degraded reliability (see pressKey.reliability)",
+        degraded: true,
+      };
+    }
+    // EM_SETSEL(start, end)锛歟nd=-1 琛ㄧず"涓€鐩村埌鏂囨湰鏈熬"銆?    loaded.SendMessageW(info.hwnd, EM.SETSEL, 0, -1);
+    const selection = getSelection(info.hwnd);
+    const length = Number(loaded.SendMessageW(info.hwnd, MSG.GETTEXTLENGTH, 0, 0));
+    const verified = selection.ok === true && Number.isFinite(length)
+      && selection.start === 0 && (selection.end === length || length === 0);
+    return {
+      ok: true,
+      hwnd: info.hwnd,
+      method: 'EM_SETSEL',
+      start: selection.start,
+      end: selection.end,
+      textLength: Number.isFinite(length) ? length : undefined,
+      verified,
+      posted: 0,
+      sent: 1,
+      className: info.className,
+      note: 'select-all performed with EM_SETSEL (reliable), not with the Ctrl+A key combination',
+    };
+  } catch (error) {
+    return { ok: false, reason: error?.dshReason ?? error?.message ?? String(error) };
+  }
+}
+
+/**
+ * **鍙潬鏇挎崲閫夊尯** 鈥斺€?璧?`EM_REPLACESEL(TRUE, text)`銆? *
+ * `text` 涓虹┖涓插嵆"鍒犻櫎褰撳墠閫夊尯"锛堝彲闈犵殑娓呯┖锛夈€? * 鏈寚瀹?`start`/`end` 鏃朵娇鐢ㄥ綋鍓嶉€夊尯锛涙寚瀹氭椂鍏?`EM_SETSEL(start,end)` 鍐嶆浛鎹€? *
+ * 瀛楃涓查€氳繃 `koffi.address()` 浠?*瑁稿湴鍧€**浼犵粰鐩爣杩涚▼ 鈥斺€?瀹炴祴璺ㄨ繘绋嬪彲鍐欏叆锛? * 鍥犱负 `EM_REPLACESEL` 鏄帶浠剁洿鎺ュ鐞嗙殑娑堟伅銆? *
+ * @returns `{ ok, before, after, changed, verified, ... }`
+ */
+export function replaceSelection(hwnd, text, options = {}) {
+  try {
+    const loaded = requireBindings();
+    const info = isEditControl(hwnd);
+    if (info.ok !== true) return info;
+    if (info.supportsEditMessages !== true) {
+      return {
+        ok: false,
+        reason: `hwnd ${info.hwnd} (class "${info.className}") is not an edit control; EM_REPLACESEL does not apply`,
+        className: info.className,
+        fallback: 'use writeText() for characters, or pressKey() accepting degraded reliability',
+        degraded: true,
+      };
+    }
+    if (typeof text !== 'string') {
+      return { ok: false, reason: `text must be a string, got ${typeof text}` };
+    }
+
+    if (options.start !== undefined || options.end !== undefined) {
+      const start = toInt32(options.start ?? 0);
+      const end = options.end === undefined ? -1 : toInt32(options.end);
+      loaded.SendMessageW(info.hwnd, EM.SETSEL, start, end);
+    }
+
+    const selectionBefore = getSelection(info.hwnd);
+    const lengthBefore = Number(loaded.SendMessageW(info.hwnd, MSG.GETTEXTLENGTH, 0, 0));
+
+    const payload = Buffer.from(`${text}\0`, 'utf16le');
+    const address = Number(loaded.koffi.address(payload));
+    // wParam = TRUE锛氭帶浠跺簲鎶婃鎿嶄綔璁板叆鎾ら攢鏍堬紝浣夸箣鍙鐢ㄦ埛 Ctrl+Z 鎾ら攢銆?    const result = Number(loaded.SendMessageW(info.hwnd, EM.REPLACESEL, options.addToUndo === false ? 0 : 1, address));
+
+    const lengthAfter = Number(loaded.SendMessageW(info.hwnd, MSG.GETTEXTLENGTH, 0, 0));
+    const expectedDelta = text.length - (selectionBefore.ok === true
+      ? Math.max(0, selectionBefore.end - selectionBefore.start)
+      : 0);
+    const changed = Number.isFinite(lengthBefore) && Number.isFinite(lengthAfter);
+    const verified = changed && (lengthAfter - lengthBefore) === expectedDelta;
+
+    return {
+      ok: true,
+      hwnd: info.hwnd,
+      method: 'EM_REPLACESEL',
+      text,
+      selectionBefore: selectionBefore.ok === true ? { start: selectionBefore.start, end: selectionBefore.end } : undefined,
+      lengthBefore: Number.isFinite(lengthBefore) ? lengthBefore : undefined,
+      lengthAfter: Number.isFinite(lengthAfter) ? lengthAfter : undefined,
+      expectedDelta,
+      actualDelta: changed ? lengthAfter - lengthBefore : undefined,
+      verified,
+      posted: 0,
+      sent: 1,
+      className: info.className,
+      rawResult: Number.isFinite(result) ? result : undefined,
+    };
+  } catch (error) {
+    return { ok: false, reason: error?.dshReason ?? error?.message ?? String(error) };
+  }
+}
+
+/**
+ * **鍙潬鐨勬竻绌?鍒犻櫎閫夊尯** 鈥斺€?`EM_REPLACESEL(TRUE, "")`銆? *
+ * 瀹為獙璇佹槑杩欐槸鍞竴鑳藉彲闈犳竻绌虹紪杈戞帶浠剁殑鏂规硶锛歚Delete` 閿粡 PostMessage 鍙戝嚭鍘? * 浼氳繑鍥炴垚鍔熶絾浠€涔堥兘涓嶅垹锛堣瑙佹湰鏂囦欢椤堕儴 EM_* 鐨勮鏄庯級銆? */
+export function clearSelection(hwnd, options = {}) {
+  try {
+    const loaded = requireBindings();
+    const info = isEditControl(hwnd);
+    if (info.ok !== true) return info;
+    if (info.supportsEditMessages !== true) {
+      return {
+        ok: false,
+        reason: `hwnd ${info.hwnd} (class "${info.className}") is not an edit control; EM_REPLACESEL does not apply`,
+        className: info.className,
+        degraded: true,
+      };
+    }
+    // 鍏堢‘淇濋€夊尯闈炵┖锛歰ptions.selectAll 鏃跺叏閫夛紱鍚﹀垯鐢ㄥ綋鍓嶉€夊尯銆?    let selection = getSelection(info.hwnd);
+    if (options.selectAll === true || (selection.ok === true && selection.collapsed === true && options.requireNonEmpty === true)) {
+      const all = selectAll(info.hwnd);
+      if (all.ok !== true) return all;
+      selection = getSelection(info.hwnd);
+    }
+    const replaced = replaceSelection(info.hwnd, '', options);
+    if (replaced.ok !== true) return replaced;
+    return {
+      ...replaced,
+      operation: 'clearSelection',
+      selectionBeforeClear: selection.ok === true ? { start: selection.start, end: selection.end } : undefined,
+      clearedChars: replaced.selectionBefore !== undefined
+        ? replaced.selectionBefore.end - replaced.selectionBefore.start
+        : undefined,
+    };
+  } catch (error) {
+    return { ok: false, reason: error?.dshReason ?? error?.message ?? String(error) };
+  }
+}
+
+/**
+ * 璇诲啓缂栬緫鎺т欢鍐呭鐨勭粺涓€鍏ュ彛銆? *
+ * `op` 鍙栧€硷細
+ *   - `'read'`             鈫?璇诲叏鏂囷紙璧?EM_GETLINE锛? *   - `'write'`            鈫?鍐欏叆鏂囨湰锛堣蛋 writeText 鐨?WM_CHAR 璺緞锛屽彲闈狅級
+ *   - `'selectAll'`        鈫?鍙潬鍏ㄩ€? *   - `'replaceSelection'` 鈫?鏇挎崲閫夊尯锛坄text` 涓虹┖鍗冲垹闄わ級
+ *   - `'clear'`            鈫?鍙潬娓呯┖锛坄selectAll` + `replaceSelection('')`锛? *   - `'append'`           鈫?杩藉姞鍒版湯灏? *   - `'selection'`        鈫?鍙閫夊尯
+ */
+export function edit(hwnd, op, text, options = {}) {
+  try {
+    switch (op) {
+      case 'read':
+        return readTextViaMessages(hwnd, options);
+      case 'selection':
+        return getSelection(hwnd);
+      case 'selectAll':
+        return selectAll(hwnd, options);
+      case 'replaceSelection':
+        return replaceSelection(hwnd, text ?? '', options);
+      case 'clear':
+        return clearSelection(hwnd, { ...options, selectAll: options.selectAll !== false });
+      case 'append': {
+        const selected = selectAll(hwnd, options);
+        if (selected.ok !== true) return selected;
+        // 鍏ㄩ€夊悗鎶婂厜鏍囨懞鍒版湯灏撅紙EM_SETSEL(-1,-1) 璇箟鐢?length..length 琛ㄨ揪锛?        const loaded = requireBindings();
+        const length = Number(loaded.SendMessageW(selected.hwnd, MSG.GETTEXTLENGTH, 0, 0));
+        loaded.SendMessageW(selected.hwnd, EM.SETSEL, length, length);
+        return writeText(selected.hwnd, text ?? '', options);
+      }
+      case 'write':
+        return writeText(hwnd, text ?? '', options);
+      default:
+        return {
+          ok: false,
+          reason: `unknown edit op: ${String(op)} (use read|write|selectAll|replaceSelection|clear|append|selection)`,
+        };
+    }
+  } catch (error) {
+    return { ok: false, reason: error?.dshReason ?? error?.message ?? String(error) };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 閿洏
+// ---------------------------------------------------------------------------
+
+/**
+ * 鎶曢€掍竴娈垫枃瀛楋細閫?UTF-16 鐮佸厓鍙?`WM_CHAR`锛堜綘閿叆浠€涔堬紝鐩爣灏辨敹鍒颁粈涔堬級銆? *
+ * **浠ｇ悊瀵瑰鐞?*锛歟moji 绛?BMP 澶栧瓧绗﹀湪 UTF-16 閲屾槸 2 涓爜鍏冿紙楂樹綅浠ｇ悊 +
+ * 浣庝綅浠ｇ悊锛夈€俉indows 鎺т欢鏀跺埌鐨勬湰鏉ュ氨鏄繖涓や釜鐙珛鐨?WM_CHAR锛屾垜浠啀鎷煎洖
+ * UTF-16 鍚庡氨鏄纭殑 emoji銆傛湰鍑芥暟**鎸夌爜鍏冮€愪釜鎶曢€?*锛堜笉鏄寜鐮佺偣鍚堝苟鎴愪竴鏉★級锛? * 杩欐鏄湡瀹為敭鐩樼殑琛屼负锛沗codeUnits` 瀛楁浼氭姤鍛婂疄闄呮姇閫掔殑鐮佸厓鏁般€? *
+ * `\r\n` / `\n` 涓€寰嬫姇閫掔粰鐩爣鐨?`\r`(0x0D)锛屽洜涓虹紪杈戞帶浠舵妸 0x0D 褰撲綔鎹㈣銆? * `\t` 鐩存帴鎶?0x09锛圵M_CHAR 鐨?Tab 鍦ㄥ鏁版帶浠堕噷灏辨槸鎻掑叆鍒惰〃绗?鍒囩劍鐐癸級銆? *
+ * @param options.deliver - 'post'锛堥粯璁わ級| 'send'
+ * @param options.foreground - **浼氭姠鐒︾偣**锛岄厤鍚?send 浣跨敤
+ * @param options.perCharDelayMs - 姣忓瓧绗︿箣闂寸殑绛夊緟锛堥粯璁?0锛? * @param options.normalizeNewlines - 榛樿 true锛屾妸 \r\n 鎶樻垚鍗?\r
+ */
+export function writeText(hwnd, text, options = {}) {
+  const counter = createCounter();
+  try {
+    const loaded = requireBindings();
+    const probe = probeWindow(hwnd);
+    if (probe.ok !== true) return probe;
+    if (typeof text !== 'string') {
+      return { ok: false, reason: `text must be a string, got ${typeof text}` };
+    }
+
+    const normalize = options.normalizeNewlines !== false;
+    const payload = normalize ? text.replace(/\r\n/g, '\r') : text;
+    const foreground = options.foreground === true;
+    let mode = options.deliver === 'send' ? 'send' : 'post';
+    let focus;
+    if (foreground) {
+      focus = ensureTargetReady(probe.hwnd, { allowFocusSteal: true });
+      mode = 'send';
+    }
+
+    const delay = options.perCharDelayMs ?? 0;
+    let codeUnits = 0;
+    let replaced = 0;
+    for (let i = 0; i < payload.length; i += 1) {
+      let unit = payload.charCodeAt(i);
+      if (unit === 0x0a) {
+        unit = 0x0d;
+        replaced += 1;
+      }
+      const outcome = deliver(loaded, probe.hwnd, MSG.CHAR, unit, 1, mode);
+      record(counter, outcome, MSG.CHAR, { char: unit, kind: 'char' });
+      codeUnits += 1;
+      if (delay > 0) sleepSync(delay);
+    }
+
+    return {
+      ok: counter.failed === 0 && payload.length > 0,
+      hwnd: probe.hwnd,
+      length: text.length,
+      codeUnits,
+      replacedNewlines: replaced,
+      posted: counter.posted,
+      sent: counter.sent,
+      failed: counter.failed,
+      deliver: mode,
+      cursorUntouched: true,
+      stoleFocus: focus !== undefined ? focus.stoleFocus : false,
+      focusWarning: focus?.focusWarning,
+      messages: counter.messages,
+      reason: payload.length === 0
+        ? 'empty text: nothing posted'
+        : (counter.failed > 0 ? `PostMessageW failed ${counter.failed} time(s) 鈥?check UIPI / dead window` : undefined),
+    };
+  } catch (error) {
+    return { ok: false, reason: error?.dshReason ?? error?.message ?? String(error), posted: counter.posted };
+  }
+}
+
+/**
+ * 鍒ゆ柇鏌愪釜铏氭嫙閿爜鏄惁灞炰簬"渚濊禆娑堟伅寰幆 TranslateMessage銆佺函 PostMessage 涓? * 涓嶅彲闈?鐨勪竴绫汇€? *
+ * `WM_CHAR` 鑳借〃杈剧殑**鍙墦鍗板瓧绗?*锛堝瓧姣?鏁板瓧/绗﹀彿锛夋湰韬彲闈?鈥斺€?浣嗛偅鏄蛋
+ * `writeText()` 鐨?WM_CHAR 璺緞銆?*浣滀负鎸夐敭**鍙?WM_KEYDOWN 鏃讹紝鍙湁
+ * "鐩爣鍙叧蹇冩寜閿湰韬?鐨勫満鏅墠鍙潬銆? *
+ * 瀹炴祴鍙潬锛氭棤锛坄WM_KEYDOWN` 鍗曞彂鍦?notepad 涓婂 Delete/Home/End/鏂瑰悜閿叏閮ㄦ棤鏁堬級銆? * 瀹炴祴涓嶅彲闈狅細鎵€鏈?缂栬緫璇箟/瀵艰埅/蹇嵎閿?绫绘寜閿€? */
+function classifyKeyReliability(vk, modifiers) {
+  const CODES = {
+    0x08: 'Backspace', 0x09: 'Tab', 0x0d: 'Enter', 0x1b: 'Escape', 0x20: 'Space',
+    0x21: 'PageUp', 0x22: 'PageDown', 0x23: 'End', 0x24: 'Home',
+    0x25: 'Left', 0x26: 'Up', 0x27: 'Right', 0x28: 'Down',
+    0x2d: 'Insert', 0x2e: 'Delete', 0x2c: 'PrintScreen',
+  };
+  const name = CODES[vk];
+  const isFunctionKey = vk >= 0x70 && vk <= 0x87;
+  const hasModifier = modifiers.length > 0;
+
+  // 缂栬緫/瀵艰埅璇箟閿?鈥斺€?瀹炴祴鍦ㄧ函 PostMessage 涓嬫棤鏁堬紙閫夊尯涓嶅彉銆佸唴瀹逛笉鍙橈級銆?  const editingSemantics = name !== undefined
+    && ['Backspace', 'Delete', 'Home', 'End', 'PageUp', 'PageDown',
+      'Left', 'Right', 'Up', 'Down', 'Insert'].includes(name);
+
+  if (editingSemantics) {
+    return {
+      reliability: 'low',
+      degraded: true,
+      why: `WM_KEYDOWN for ${name} is posted directly into the target's message queue, bypassing ` +
+        'the receiving thread\'s TranslateMessage. Measured on real notepad: the message is accepted ' +
+        '(PostMessageW returns true) but nothing happens 鈥?the selection never moves and no text changes.',
+      measuredEvidence: 'notepad: Delete/Home/End/arrows posted successfully yet text and EM_GETSEL were unchanged',
+      recommended: 'use the EM_* edit-control API instead (selectAll / replaceSelection / clearSelection / edit)',
+    };
+  }
+
+  if (hasModifier) {
+    return {
+      reliability: 'low',
+      degraded: true,
+      why: 'Shortcut combinations sent as posted WM_KEYDOWN rely on real keyboard state and on the ' +
+        'target\'s TranslateMessage/accelerator handling, neither of which PostMessage provides. ' +
+        'Measured on real notepad: Ctrl+A inserted a literal "a" and did NOT select anything.',
+      measuredEvidence: 'notepad: keyCombo(ctrl+a) left EM_GETSEL at {10,10} and appended the character "a"',
+      recommended: 'for edit controls use selectAll()/replaceSelection() (EM_SETSEL/EM_REPLACESEL), which are reliable',
+    };
+  }
+
+  if (isFunctionKey) {
+    return {
+      reliability: 'medium',
+      degraded: false,
+      why: 'Function keys are usually handled directly by the target window procedure, so they post more ' +
+        'reliably than editing keys. This is not true for menu accelerators or apps that filter on focus.',
+      recommended: 'verify the effect where possible',
+    };
+  }
+
+  if (name === 'Escape') {
+    return {
+      reliability: 'medium',
+      degraded: false,
+      why: 'Escape is typically handled by the window procedure (dialogs, popups) but may be ignored by ' +
+        'the focused control in some apps.',
+      recommended: 'verify the effect where possible',
+    };
+  }
+
+  return {
+    reliability: 'low',
+    degraded: true,
+    why: 'Generic posted WM_KEYDOWN/WM_KEYUP does not go through TranslateMessage and does not update real ' +
+      'keyboard state, so many applications will not interpret it as a real key press.',
+    recommended: 'prefer writeText() for characters and the EM_* API for edit controls',
+  };
+}
+
+/**
+ * 鎸変笅+鎶捣涓€涓敭锛堟垨涓€涓粍鍚堬級銆? *
+ * 缁勫悎椤哄簭锛堣繖鏄?RS-5 瑕佹眰鐨勮涔夛級锛? *   淇グ閿寜涓?鈫?涓婚敭鎸変笅 鈫?涓婚敭鎶捣 鈫?淇グ閿姮璧凤紙閫嗗簭閲婃斁锛? * 鏈?Alt 鏃惰嚜鍔ㄨ蛋 `WM_SYSKEYDOWN/UP`锛圵indows 鑿滃崟鍔犻€熼敭渚濊禆瀹冿級锛宭Param 鐨? * bit29锛坈ontext code锛夊悓鏃剁疆浣嶃€? *
+ * `GetKeyState` 涓€鑷存€э細瑙?`modifierStateNote` 鈥斺€?PostMessage **涓?*鏀圭湡瀹為敭鐩? * 鐘舵€佽〃锛屾墍浠ョ洰鏍囧唴閮?GetKeyState 鐪嬪埌鐨勪粛鏄敤鎴风殑鐗╃悊閿洏銆傜粨鏋滈噷
+ * `modifierStateNote` 浼氭妸杩欑偣鏄庣‘鍐欑粰璋冪敤鏂广€? *
+ * @param key - "ctrl+a" | "enter" | "f5" | "alt+tab" | ['ctrl','shift','s'] | 铏氭嫙閿爜鏁板瓧
+ * @param options.times - 閲嶅娆℃暟锛堥粯璁?1锛? * @param options.deliver - 'post'锛堥粯璁わ級| 'send'
+ * @param options.foreground - **浼氭姠鐒︾偣**锛岄厤鍚?send 浣跨敤
+ */
+export function pressKey(hwnd, key, options = {}) {
+  const counter = createCounter();
+  try {
+    const loaded = requireBindings();
+    const probe = probeWindow(hwnd);
+    if (probe.ok !== true) return probe;
+
+    const spec = parseKeySpec(key);
+    if (spec.ok !== true) return spec;
+
+    const times = Math.max(1, toInt32(options.times ?? 1) || 1);
+    const holdMs = options.holdMs ?? 0;
+    const foreground = options.foreground === true;
+    let mode = options.deliver === 'send' ? 'send' : 'post';
+    let focus;
+    if (foreground) {
+      focus = ensureTargetReady(probe.hwnd, { allowFocusSteal: true });
+      mode = 'send';
+    }
+
+    const sequence = [];
+    const alt = hasAlt(spec.modifiers);
+
+    // ---------------------------------------------------------------------
+    // 鍙潬鎬ц瘎浼帮細`ok:true` 鍙〃绀?娑堟伅鎶曢€掓垚鍔熶簡"锛?*涓嶇瓑浜庣洰鏍囩湡鐨勬墽琛屼簡鍔ㄤ綔**銆?    // 瑙佹湰鏂囦欢椤堕儴鍏充簬 TranslateMessage 鐨勮鏄庛€傝繖閲屾妸鐪熺浉鏄惧紡鏆撮湶缁欒皟鐢ㄦ柟锛?    // 閬垮厤妯″瀷鐪嬪埌涓€涓?ok:true 灏变互涓烘搷浣滅敓鏁堛€?    // ---------------------------------------------------------------------
+    const reliability = classifyKeyReliability(spec.keys[0], spec.modifiers);
+    const chain = spec.keys.map((vk) => classifyKeyReliability(vk, spec.modifiers));
+    const worst = chain.some((item) => item.reliability === 'low')
+      ? 'low'
+      : (chain.some((item) => item.reliability === 'medium') ? 'medium' : 'high');
+    const reliabilitySummary = { ...reliability, reliability: worst };
+
+    const emit = (message, vk, keyUp, altDown) => {
+      const lp = buildKeyLParam(vk, { keyUp, altDown });
+      const outcome = deliver(loaded, probe.hwnd, message, vk, lp, mode);
+      record(counter, outcome, message, { vk, keyUp, extended: EXTENDED_VKS.has(vk), kind: 'key' });
+      sequence.push({ message: `0x${message.toString(16).padStart(4, '0')}`, vk, keyUp, lParam: lp, ok: outcome.sent > 0 });
+    };
+
+    const downMsg = (alt ? MSG.SYSKEYDOWN : MSG.KEYDOWN);
+    const upMsg = (alt ? MSG.SYSKEYUP : MSG.KEYUP);
+
+    for (let round = 0; round < times; round += 1) {
+      // 1) 淇グ閿寜涓嬶紙姝ｅ簭锛欳trl鈫扴hift鈫扐lt锛?      for (const vk of spec.modifiers) {
+        const isAlt = SYS_MODIFIER_VKS.has(vk);
+        emit(isAlt ? MSG.SYSKEYDOWN : MSG.KEYDOWN, vk, false, alt);
+      }
+      // 2) 涓婚敭鎸変笅 鈫?鎶捣
+      for (const vk of spec.keys) {
+        emit(downMsg, vk, false, alt);
+        if (holdMs > 0) sleepSync(holdMs);
+        emit(upMsg, vk, true, alt);
+      }
+      // 3) 淇グ閿姮璧凤紙閫嗗簭锛?      for (const vk of [...spec.modifiers].reverse()) {
+        const isAlt = SYS_MODIFIER_VKS.has(vk);
+        emit(isAlt ? MSG.SYSKEYUP : MSG.KEYUP, vk, true, alt);
+      }
+    }
+
+    return {
+      ok: counter.failed === 0,
+      // 璇箟婢勬竻锛歰k 鍙唬琛?娑堟伅鎶曢€掓垚鍔?锛屼笉浠ｈ〃鐩爣鐪熺殑鍝嶅簲浜嗐€?      // 璇疯 reliability / degraded / note 鍒ゆ柇杩欐鎸夐敭鏄惁**鍙兘鐪熺殑鐢熸晥**銆?      delivered: counter.failed === 0,
+      effectVerified: false,
+      reliability: reliabilitySummary.reliability,
+      degraded: reliabilitySummary.degraded === true,
+      note: reliabilitySummary.why,
+      recommendedAlternative: reliabilitySummary.recommended,
+      measuredEvidence: reliabilitySummary.measuredEvidence,
+      hwnd: probe.hwnd,
+      key: typeof key === 'string' ? key : undefined,
+      modifiers: spec.modifiers,
+      virtualKeys: spec.keys,
+      times,
+      posted: counter.posted,
+      sent: counter.sent,
+      failed: counter.failed,
+      deliver: mode,
+      usesSysKeys: alt,
+      sequence,
+      cursorUntouched: true,
+      stoleFocus: focus !== undefined ? focus.stoleFocus : false,
+      focusWarning: focus?.focusWarning,
+      modifierStateNote: modifierStateNote(spec.modifiers),
+      messages: counter.messages,
+      reason: counter.failed > 0
+        ? `delivery failed ${counter.failed} time(s) 鈥?check UIPI / dead window`
+        : (reliabilitySummary.degraded === true
+          ? `messages were delivered but this key path is unreliable with PostMessage: ${reliabilitySummary.why}`
+          : undefined),
+    };
+  } catch (error) {
+    return { ok: false, reason: error?.dshReason ?? error?.message ?? String(error), posted: counter.posted };
+  }
+}
+
+/**
+ * 淇グ閿粍鍚堢殑鏄惧紡 API锛堣涔変笂绛夊悓 pressKey锛屼絾鍏ュ弬鏄?淇グ閿暟缁?+ 涓婚敭"锛夈€? *
+ * @param keys - 涓婚敭锛屽瓧绗︿覆鎴栨暟缁勶紙鎸夐『搴忓悇鎸変竴娆★紝渚嬪 alt+tab 鐨?['tab','tab']锛? * @param modifiers - ['ctrl'] | ['ctrl','shift'] | 'ctrl+a' 褰㈠紡涔熻
+ */
+export function keyCombo(hwnd, keys, modifiers = [], options = {}) {
+  try {
+    const modList = Array.isArray(modifiers)
+      ? modifiers
+      : (typeof modifiers === 'string' && modifiers.trim() !== ''
+        ? modifiers.split('+').map((item) => item.trim()).filter((item) => item !== '')
+        : []);
+    const keyList = Array.isArray(keys) ? keys : [keys];
+    if (keyList.length === 0) return { ok: false, reason: 'keyCombo requires at least one main key' };
+
+    const spec = [...modList, ...keyList];
+    const result = pressKey(hwnd, spec, options);
+    if (result.ok !== true && result.reason !== undefined && result.posted === undefined) return result;
+
+    // 缁勫悎閿殑鍙潬鎬у彇鍐充簬"涓婚敭 + 鏄惁甯︿慨楗伴敭"銆?    const parsed = parseKeySpec(spec);
+    const mainVk = parsed.ok === true ? parsed.keys[0] : 0;
+    const reliability = classifyKeyReliability(mainVk, parsed.ok === true ? parsed.modifiers : []);
+
+    // 缁欑紪杈戞帶浠剁殑鏄惧紡鎸囧紩锛氬揩鎹烽敭鍦ㄧ函 PostMessage 涓嬩笉鍙潬锛孍M_* 鎵嶅彲闈犮€?    let editHint;
+    const editInfo = isEditControl(hwnd);
+    if (editInfo.ok === true && editInfo.supportsEditMessages === true) {
+      const lower = spec.map((item) => String(item).toLowerCase());
+      if (lower.includes('ctrl') && lower.includes('a')) {
+        editHint = 'on this edit control prefer selectAll(hwnd) (EM_SETSEL) 鈥?it is verified reliable, unlike Ctrl+A';
+      } else if (lower.includes('ctrl') && (lower.includes('x') || lower.includes('v') || lower.includes('c'))) {
+        editHint = 'on this edit control prefer replaceSelection(hwnd, text) / edit(hwnd,"read") 鈥?EM_* is verified reliable';
+      }
+    }
+
+    return {
+      ...result,
+      modifiersResolved: result.modifiers,
+      mainKeysResolved: result.virtualKeys,
+      spec: spec.join('+'),
+      reliability: reliability.reliability,
+      degraded: reliability.degraded === true,
+      note: reliability.why,
+      recommendedAlternative: editHint ?? reliability.recommended,
+      measuredEvidence: reliability.measuredEvidence,
+      editControlDetected: editInfo.ok === true ? editInfo.supportsEditMessages === true : undefined,
+    };
+  } catch (error) {
+    return { ok: false, reason: error?.dshReason ?? error?.message ?? String(error) };
+  }
+}
+
+/**
+ * 鐩存帴鎸夐敭鍚嶆暟缁勮В鏋愶紙涓嶆姇閫掞級锛屼緵璋冪敤鏂归妫€銆? */
+export function explainKey(key) {
+  try {
+    const spec = parseKeySpec(key);
+    if (spec.ok !== true) return spec;
+    return {
+      ok: true,
+      input: typeof key === 'string' ? key : undefined,
+      modifiers: spec.modifiers,
+      virtualKeys: spec.keys,
+      scanCodes: spec.keys.map((vk) => scanCodeForVk(vk)),
+      extended: spec.keys.map((vk) => EXTENDED_VKS.has(vk)),
+      usesSysKeys: hasAlt(spec.modifiers),
+      modifierStateNote: modifierStateNote(spec.modifiers),
+    };
+  } catch (error) {
+    return { ok: false, reason: error?.dshReason ?? error?.message ?? String(error) };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 鍥炶 / 鏂█杈呭姪锛堜富瑕佺粰娴嬭瘯涓庡璁＄敤锛?// ---------------------------------------------------------------------------
+
+/**
+ * 鐢?`WM_GETTEXT` 鍥炶鎺т欢鏂囨湰銆? *
+ * 娉ㄦ剰锛氳法杩涚▼ `WM_GETTEXT` 鎶曢€掔紦鍐插尯浼氬け璐ワ紙Windows 涓嶅厑璁歌繙绋嬪啓鍏ヨ皟鐢ㄦ柟
+ * 鍦板潃绌洪棿锛夛紝姝ゆ椂蹇呴』鏀圭敤 `WM_GETTEXTLENGTH` + 鍒嗗潡 `EM_GETLINE` 鎴?UIA銆? * 鏈嚱鏁版寜椤哄簭灏濊瘯锛氬悓杩涚▼ `WM_GETTEXT` 鈫?鍒嗗潡 `EM_GETLINE`(0x00C4)銆? *
+ * @returns `{ ok, text, method, reason }`
+ */
+export function readTextViaMessages(hwnd, options = {}) {
+  try {
+    const loaded = requireBindings();
+    const maxChars = toInt32(options.maxChars ?? 8192) || 8192;
+    const target = toHwnd(hwnd);
+    if (loaded.IsWindow(target) !== true) {
+      return { ok: false, reason: `hwnd ${target} is not a window` };
+    }
+
+    const attempts = [];
+    const ownPid = process.pid;
+    const targetPid = windowPid(loaded, target);
+    const sameProcess = targetPid === ownPid;
+
+    // ---------------------------------------------------------------------
+    // 璺嚎 1锛氳法杩涚▼ WM_GETTEXT銆?    //
+    // 鍏抽敭锛歚WM_GETTEXT` 鐨?lParam 鏄?*鎸囧悜鎺ユ敹缂撳啿鍖虹殑鎸囬拡**銆傜紦鍐插尯鍦?*鎴戜滑**
+    // 鐨勫湴鍧€绌洪棿閲岋紝鑰屾秷鎭敱**鐩爣杩涚▼**澶勭悊 鈥斺€?鐩爣鍐欏叆鑷繁鍦板潃绌洪棿閲岀殑鍚屼竴涓?    // 鏁板€煎湴鍧€锛屼笉浼氬洖鍐欏埌鎴戜滑鐨勭紦鍐插尯銆傚洜姝ゆ妸 Buffer 浜ょ粰 koffi 鍋氭寚閽堝湪
+    // koffi 灞傜洿鎺ヨ鎷掞紙"Unexpected Uint8Array value, expected number"锛夛紝
+    // 鍗充究鑳戒紶涔熻涓嶅埌鏁版嵁銆?    //
+    // 姝ｇ‘鍋氭硶锛氱洿鎺ユ姇 `WM_GETTEXT` 鍒?*鐩爣杩涚▼鑷繁鐨勭嚎绋?*锛堥渶瑕?AttachThreadInput
+    // 鎴栧悓绾跨▼锛夛紝鎴栨敼鐢?EM_GETLINE锛堣璺嚎 2锛夛紝鎴?UIA銆傝繖閲屽厛鍋氬悓杩涚▼蹇矾寰勩€?    // ---------------------------------------------------------------------
+    if (sameProcess && loaded.GetWindowTextW !== undefined) {
+      const title = titleOf(loaded, target);
+      attempts.push('own-process GetWindowTextW');
+      if (title !== '') return { ok: true, text: title, method: 'GetWindowTextW(own-process)', attempts };
+    }
+
+    // ---------------------------------------------------------------------
+    // 璺嚎 2锛欵M_GETLINE / WM_GETTEXTLENGTH 鈥斺€?瀵?EDIT/RichEdit 璺ㄨ繘绋嬪彲鐢ㄣ€?    //
+    // 涓?WM_GETTEXT 涓嶅悓锛孍M_GETLINE **涓嶇敤 lParam 褰撴寚閽?*锛歐indows 鐨勭紪杈戞帶浠?    // 瀵?EM_GETLINE 鏈夎法杩涚▼鐗规畩澶勭悊锛堝唴閮ㄧ敤 WM_COPYDATA 椋庢牸鍥為€侊級锛屾墍浠ヨ繖鏉?    // 璺法杩涚▼鍙敤銆備絾瀹冪殑璇箟鏄?鍙栫 N 琛?锛岄渶瑕侀€愯鎷笺€?    // ---------------------------------------------------------------------
+    const EM_GETLINE = 0x00c4;
+    const EM_GETLINECOUNT = 0x00ba;
+    const EM_GETSEL = 0x00b0;
+    const WM_GETTEXTLENGTH = MSG.GETTEXTLENGTH;
+
+    const lineCountRaw = Number(loaded.SendMessageW(target, EM_GETLINECOUNT, 0, 0));
+    const textLengthRaw = Number(loaded.SendMessageW(target, WM_GETTEXTLENGTH, 0, 0));
+    attempts.push(`EM_GETLINECOUNT=${lineCountRaw}`, `WM_GETTEXTLENGTH=${textLengthRaw}`);
+
+    // 璺嚎 2a锛歐M_GETTEXT 鐢?*鐩爣杩涚▼鍙啓鐨?*鍏变韩缂撳啿 鈥斺€?閫氳繃 ReadProcessMemory
+    // 鏂规涓嶅彲琛岋紙native.js 鏈鍑猴級锛屽洜姝よ繖閲屾樉寮忎笉鍋氾紝閬垮厤缁欏嚭铏氬亣鎴愬姛銆?    // 杞€岀敤 EM_GETLINE 閫愯鍙栥€?    if (Number.isFinite(lineCountRaw) && lineCountRaw > 0 && lineCountRaw < 100000) {
+      const lines = [];
+      let total = 0;
+      for (let index = 0; index < lineCountRaw && index < 20000; index += 1) {
+        const line = readEditLine(loaded, target, index, EM_GETLINE, Math.min(maxChars, 8192));
+        if (line === undefined) { lines.length = 0; break; }
+        lines.push(line);
+        total += line.length;
+        if (total > maxChars) break;
+      }
+      if (lines.length > 0) {
+        const text = lines.join('\r\n');
+        // lineCountRaw=1 涓旀枃鏈暱搴﹀尮閰嶆椂锛岀粨鏋滃彲淇°€?        return {
+          ok: true,
+          text,
+          method: 'EM_GETLINE',
+          lineCount: lineCountRaw,
+          reportedLength: Number.isFinite(textLengthRaw) ? textLengthRaw : undefined,
+          lengthConsistent: Number.isFinite(textLengthRaw) ? (textLengthRaw === text.length) : undefined,
+          attempts,
+        };
+      }
+    }
+
+    // 璺嚎 3锛氬悓杩涚▼ WM_GETTEXT锛堢紦鍐插尯鐩存帴灏辨槸鐩爣杩涚▼鐨勫湴鍧€绌洪棿锛夈€?    if (sameProcess) {
+      const buffer = Buffer.alloc(maxChars * 2);
+      const copied = Number(loaded.SendMessageW(target, MSG.GETTEXT, maxChars, buffer));
+      attempts.push(`same-process WM_GETTEXT -> ${copied}`);
+      if (Number.isFinite(copied) && copied > 0) {
+        return { ok: true, text: buffer.toString('utf16le', 0, copied * 2), method: 'WM_GETTEXT(same-process)', attempts };
+      }
+    }
+
+    return {
+      ok: false,
+      reason:
+        'cannot read text from another process through messages: WM_GETTEXT needs a pointer into ' +
+        'the TARGET process address space (koffi rejects passing our Buffer, and the target could not ' +
+        'write back to it anyway), and EM_GETLINE is only implemented by EDIT/RichEdit controls. ' +
+        'Use the UIAutomation route (uia.js) or read the value from inside the target process. ' +
+        'Note: a window title is NOT a substitute (it reflects only the first line and adds an unsaved marker).',
+      attempts,
+      verifiedHint: 'window-title round-trip is unreliable: notepad showed "*鏃犳爣棰?- 璁颁簨鏈? right after a successful write',
+    };
+  } catch (error) {
+    return { ok: false, reason: error?.dshReason ?? error?.message ?? String(error) };
+  }
+}
+
+/**
+ * 璺ㄨ繘绋嬭 EDIT/RichEdit 鐨勭 N 琛屻€? *
+ * EM_GETLINE 鏄?*灏戞暟璺ㄨ繘绋嬪彲鐢ㄧ殑缂栬緫鎺т欢娑堟伅**锛氳皟鐢ㄦ柟鎶?鏈鏈€澶氭帴鏀跺灏戝瓧绗?
+ * 鍐欒繘缂撳啿鍖虹殑澶翠袱涓瓧鑺傦紙涓€涓?WORD 瀹归噺锛夛紝鎺т欢鎶婅琛屽瓧绗﹀洖閫佽繘鍚屼竴鍧楃紦鍐插尯銆? *
+ * 鍥為€佸竷灞€锛?*鏈満瀹炴祴**锛宯otepad 鐨?Edit 鎺т欢锛夛細
+ *   - 琛屾枃鏈粠**瀛楄妭鍋忕Щ 0** 寮€濮嬶紝瀹归噺 WORD 琚鐩栵紱
+ *   - 杩斿洖鍊?= 瀹為檯鍐欏叆鐨勫瓧绗︽暟 N锛堜笉鍚?NUL锛夛紱
+ *   - 浣嶇疆 `N*2` 澶勬槸缁撳熬 NUL锛屼絾**鍏跺悗涓や釜瀛楄妭淇濈暀鐫€璋冪敤鏂瑰師鍏堝啓鐨勫閲忛珮瀛楄妭**
+ *     锛堝疄娴嬪啓鍏?"ABCDE" 鍚?buffer 涓?`41 00 42 00 43 00 44 00 45 00 6f 37`锛夛紝
+ *     鎵€浠?*蹇呴』鎸夎繑鍥炵殑 N 鎴柇**锛屼笉鑳介潬鎵弿 NUL 鏉ュ畾闀垮害銆? *
+ * 涓や釜鏇剧粡鐨勯敊璇疄鐜帮紙鍧囧凡淇锛岃褰曞湪姝ら伩鍏嶅洖褰掞級锛? *   1. 浠?*鍋忕Щ 2** 璇?鈫?涓㈡帀棣栧瓧绗︼紙"ABCDE" 璇绘垚 "BCDE"锛夛紱
+ *   2. 鐢?缂撳啿鍖洪瀛楀０鏄庣殑璁℃暟 鈭?1"褰撳瓧绗︽暟 鈫?棣栧瓧宸茶鏂囨湰瑕嗙洊锛堣繖閲屾槸 0x0041
+ *      = 'A'锛夛紝鑻?<255 灏变細绠楀嚭 64锛?A"鈭?锛変箣绫荤殑鍨冨溇闀垮害銆? *
+ * koffi 鐨?`intptr_t` 涓嶆帴鍙?Buffer锛屾墍浠ュ厛鐢?`koffi.address()` 鍙栬８鍦板潃鍐嶅綋鏁存暟浼犮€? *
+ * @returns 琛屾枃鏈紱涓嶆垚鍔熻繑鍥?undefined銆? */
+function readEditLine(loaded, hwnd, index, emGetLine, maxChars) {
+  try {
+    const koffiAddress = typeof loaded.koffi?.address === 'function' ? loaded.koffi.address : undefined;
+    if (koffiAddress === undefined) return undefined;
+    const capacity = Math.min(maxChars, 8192);
+    const buffer = Buffer.alloc((capacity + 1) * 2);
+    buffer.writeUInt16LE(capacity, 0);
+    const address = Number(koffiAddress(buffer));
+    if (!Number.isFinite(address) || address === 0) return undefined;
+    const copied = Number(loaded.SendMessageW(hwnd, emGetLine, index, address));
+    if (!Number.isFinite(copied) || copied <= 0) return undefined;
+    const chars = Math.min(copied, capacity);
+    return buffer.toString('utf16le', 0, chars * 2);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * 鏋氫妇鐩爣绐楀彛鐨勭洿鎺ュ瓙鎺т欢锛堢敤浜庢壘鍒?EDIT 鎺т欢鍋氬洖璇伙級銆? * @returns `{ ok, children:[{hwnd,className,pid,title,rect}] }`
+ */
+export function childWindows(hwnd) {
+  try {
+    requireBindings();
+    const children = [];
+    enumWindows((child) => {
+      const probe = probeWindow(child);
+      if (probe.ok === true) {
+        children.push({
+          hwnd: child,
+          className: probe.className,
+          pid: probe.pid,
+          title: probe.title,
+          rect: probe.rect,
+          client: probe.client,
+          visible: probe.visible,
+        });
+      }
+      return true;
+    }, { childrenOf: toHwnd(hwnd) });
+    return { ok: true, children };
+  } catch (error) {
+    return { ok: false, reason: error?.dshReason ?? error?.message ?? String(error) };
+  }
+}
+
+/** 璇荤湡瀹炲厜鏍囦綅缃紙鍙锛岀粷涓嶄慨鏀癸級銆?*/
+export function cursorPosition() {
+  try {
+    const loaded = requireBindings();
+    const buffer = Buffer.alloc(8);
+    if (loaded.GetCursorPos(buffer) !== true) {
+      return { ok: false, reason: 'GetCursorPos failed' };
+    }
+    return { ok: true, x: buffer.readInt32LE(0), y: buffer.readInt32LE(4) };
+  } catch (error) {
+    return { ok: false, reason: error?.dshReason ?? error?.message ?? String(error) };
+  }
+}
+
+/**
+ * 鑷锛氭湰妯″潡鏄惁鍙敤銆佺粦鍒板摢銆佸叧閿嚱鏁版槸鍚﹂綈銆? * 瀹夸富/璇婃柇闈㈡澘鍙互鐩存帴璋冭繖涓€? *
+ * `missingBindings` 鏉ヨ嚜 native.js 鑷繁鐨?`failures` 鏁扮粍锛堟瘡涓嚱鏁扮嫭绔?try/catch锛夛紝
+ * 鍐嶄笌"鏈ā鍧楀繀闇€鐨勫嚱鏁?姹備氦闆嗭紝渚夸簬鍒ゆ柇铏氭嫙杈撳叆灞傝兘鍚﹀伐浣溿€? */
+export function describeVirtualInput() {
+  try {
+    const native = describeNative();
+    const loaded = loadWin32();
+    if (loaded.reason !== undefined) {
+      return { ok: false, reason: loaded.reason, native };
+    }
+
+    const required = [
+      'PostMessageW', 'SendMessageW', 'GetCursorPos', 'MapVirtualKeyW',
+      'GetKeyState', 'GetAsyncKeyState', 'ClientToScreen', 'ScreenToClient',
+      'IsWindow', 'IsWindowVisible', 'IsWindowEnabled', 'IsIconic',
+      'IsHungAppWindow', 'GetForegroundWindow', 'GetWindowThreadProcessId',
+      'SetForegroundWindow', 'ShowWindow', 'SetWindowPos', 'AttachThreadInput',
+      'GetClassNameW', 'GetWindowTextW', 'GetCurrentThreadId',
+    ];
+    const missingBindings = required.filter((name) => loaded[name] === undefined);
+    const optional = [
+      'OpenProcess', 'QueryFullProcessImageNameW', 'CloseHandle', // 浠呯敤浜庡璁″睍绀?      'GetWindowTextLengthW', 'GetFocus', 'GetWindowLongPtrW', 'UpdateWindow', 'InvalidateRect',
+      'GetSystemMetrics', 'BringWindowToTop', 'ToUnicodeEx', 'GetKeyboardLayout',
+    ];
+    const missingOptional = optional.filter((name) => loaded[name] === undefined);
+
+    return {
+      ok: missingBindings.length === 0,
+      ready: missingBindings.length === 0,
+      native,
+      koffi: loaded.from,
+      nativeBindingFailures: loaded.failures ?? [],
+      missingBindings,
+      missingOptionalBindings: missingOptional,
+      api: Object.keys(PUBLIC_API),
+      capabilities: {
+        mouseMessages: true,
+        keyboardMessages: true,
+        unicodeText: true,
+        surrogatePairs: true,
+        cursorIsNotMoved: true,
+      },
+      limits: {
+        uwp: 'UWP/XAML windows ignore injected WM_* input',
+        elevated: 'UIPI blocks PostMessageW into higher-integrity processes (PostMessageW returns false)',
+        chromiumContent: 'Chromium/Electron content surfaces may ignore WM_MOUSE*/WM_CHAR',
+        directInput: 'DirectInput / fullscreen games / RDP clients poll *AsyncKeyState and ignore messages',
+        terminals: 'Windows Terminal / conhost route input through ConPTY',
+        realKeyState: 'PostMessageW does not change the real keyboard state table (GetKeyState stays physical)',
+        translateMessage:
+          'PostMessage bypasses the receiving thread\'s TranslateMessage. WM_CHAR and WM_MOUSE* are handled ' +
+          'directly by the window procedure and are reliable; non-character WM_KEYDOWN semantics ' +
+          '(Delete/Home/End/arrows/Backspace and shortcut combos) are NOT. Measured on real notepad: ' +
+          'Delete/Home/End/arrows did nothing and Ctrl+A inserted a literal "a" instead of selecting. ' +
+          'For edit controls use the EM_* API (selectAll/replaceSelection/clearSelection/edit) instead.',
+        processImage: 'process image name is unavailable when native.js omits OpenProcess/QueryFullProcessImageNameW',
+      },
+      reason: missingBindings.length > 0
+        ? `native.js is missing required bindings: ${missingBindings.join(', ')}`
+        : undefined,
+    };
+  } catch (error) {
+    return { ok: false, reason: error?.dshReason ?? error?.message ?? String(error) };
+  }
+}
+
+/** 鍏紑 API 娓呭崟锛堜緵璇婃柇涓庢枃妗ｏ級銆?*/
+/**
+ * 鎷栧姩锛堝乏閿暱鎸夌Щ鍔級銆? *
+ * ## 涓ょ鎷栧姩锛岃兘鍔涘畬鍏ㄤ笉鍚岋紙閮界粡瀹炴祴锛? *
+ * **1. 鎷栧姩鍐呭**锛堥€変腑鏂囧瓧銆佺Щ鍔ㄧ敾甯冨璞＄瓑锛夆€斺€?`mode:'content'`锛堥粯璁わ級
+ *    鎶曢€?`WM_LBUTTONDOWN` 鈫?澶氭 `WM_MOUSEMOVE`锛堝甫 MK_LBUTTON锛夆啋 `WM_LBUTTONUP`锛? *    鐢辩洰鏍囨帶浠惰嚜宸辩淮鎶ゆ嫋鍔ㄧ姸鎬併€? *    瀹炴祴锛氬湪璁颁簨鏈噷鎷栬繃涓€娈垫枃瀛楄兘褰㈡垚閫夊尯锛堝悓鍒?16 瀛椼€佽法琛?58 瀛椼€? *    鍙嶅悜鎷栧姩涔熻兘姝ｇ‘閫変腑锛夛紝涓?*鐪熷疄鍏夋爣瀹屽叏涓嶅姩**銆? *
+ * **2. 鎷栧姩绐楀彛**锛堟妸鏍囬鏍忔嫋璧帮級鈥斺€?`mode:'window'`
+ *    绐楀彛鎷栧姩鐢?*绐楀彛绠＄悊鍣ㄧ殑妯℃€佸惊鐜?*瀹炵幇锛氭敹鍒?`WM_NCLBUTTONDOWN(HTCAPTION)`
+ *    鍚庯紝绯荤粺浼氳繘鍏ヤ竴涓惊鐜紝璁╃獥鍙?*璺熼殢鐪熷疄鍏夋爣**绉诲姩锛岀洿鍒板乏閿姮璧枫€? *    鍥犳杩欐潯璺?*蹇呴』绉诲姩鐪熷疄鍏夋爣**锛坄SetCursorPos`锛夛紝浼氱煭鏆傚崰鐢ㄧ敤鎴风殑榧犳爣銆? *
+ *    瀹炴祴缁撹锛氱函 `PostMessage(WM_NCLBUTTONDOWN, HTCAPTION)` **涓嶄細**绉诲姩绐楀彛
+ *    锛堟ā鎬佸惊鐜渶瑕佺湡瀹炵殑榧犳爣鐘舵€侀厤鍚堬級銆傛墍浠?window 妯″紡鏄湰鎻掍欢閲?*鍞竴**
+ *    浼氱鐪熷疄鍏夋爣鐨勬搷浣滐紝杩斿洖鍊奸噷鐢?`usesRealCursor:true` 鏄惧紡鏍囨敞锛? *    榛樿 `restoreCursor:true` 鍦ㄦ嫋鍔ㄧ粨鏉熷悗鎶婂厜鏍囨斁鍥炲師澶勩€? *
+ * @param hwnd - 鐩爣绐楀彛銆? * @param from - `{x, y}` 璧风偣锛涢粯璁?`{x:0,y:0}` 鐨勮涔夌敱 space 鍐冲畾銆? * @param to - `{x, y}` 缁堢偣銆? * @param options.mode - 'content'锛堥粯璁わ紝绾秷鎭級| 'window'锛堢湡瀹炲厜鏍囨嫋鏍囬鏍忥級銆? * @param options.space - 'client'锛堥粯璁わ級| 'screen'銆? * @param options.steps - 涓棿绉诲姩姝ユ暟锛岄粯璁?12銆傛鏁板鍒欒建杩规洿骞虫粦锛? *   鏌愪簺鎺т欢闇€瑕佽冻澶熷鐨勭Щ鍔ㄤ簨浠舵墠璁ゅ彲鏄嫋鍔ㄨ€岄潪鐐瑰嚮銆? * @param options.stepDelayMs - 姣忔闂撮殧锛岄粯璁?20ms銆? * @param options.button - 'left'|'right'|'middle'锛岄粯璁?left銆? * @param options.titleBarOffset - mode:'window' 鏃朵粠绐楀彛椤堕儴涓嬬Щ澶氬皯鍍忕礌褰撴爣棰樻爮锛岄粯璁?16銆? */
+export function drag(hwnd, from, to, options = {}) {
+  const counter = createCounter();
+  try {
+    const loaded = requireBindings();
+    const probe = probeWindow(hwnd);
+    if (probe.ok !== true) return probe;
+
+    const mode = options.mode === 'window' ? 'window' : 'content';
+    const buttonName = options.button ?? 'left';
+    const button = BUTTONS[buttonName];
+    if (button === undefined) {
+      return { ok: false, reason: `unknown mouse button: ${String(buttonName)} (use left|right|middle)` };
+    }
+    const steps = Number.isInteger(options.steps) && options.steps > 0 ? Math.min(options.steps, 200) : 12;
+    const stepDelayMs = Number.isFinite(options.stepDelayMs) ? Math.max(0, options.stepDelayMs) : 20;
+
+    if (from === undefined || to === undefined || from === null || to === null) {
+      return { ok: false, reason: 'drag requires both from:{x,y} and to:{x,y}' };
+    }
+
+    // --- 绐楀彛鎷栧姩锛氳蛋绐楀彛绠＄悊鍣ㄧ殑妯℃€佸惊鐜紝蹇呴』绉诲姩鐪熷疄鍏夋爣 ---
+    if (mode === 'window') {
+      if (typeof loaded.SetCursorPos !== 'function') {
+        return { ok: false, reason: 'window drag needs SetCursorPos, which is unavailable in this build' };
+      }
+      const rect = probe.rect;
+      if (rect === undefined) return { ok: false, reason: 'cannot read window rect for window drag' };
+      const offset = Number.isFinite(options.titleBarOffset) ? options.titleBarOffset : 16;
+      const startX = rect.left + Math.floor(rect.width / 2);
+      const startY = rect.top + offset;
+      const dx = toInt32(to.x) - toInt32(from.x);
+      const dy = toInt32(to.y) - toInt32(from.y);
+
+      const original = cursorPosition();
+      const useReal = options.useRealCursor !== false;
+      if (useReal !== true) {
+        return {
+          ok: false,
+          reason: 'window drag requires the real cursor (the window manager follows it); '
+            + 'pass useRealCursor:true to accept that, or use mode:"content" for message-only dragging',
+          usesRealCursor: true,
+        };
+      }
+
+      let moved = false;
+      try {
+        loaded.SetCursorPos(startX, startY);
+        // 鍏抽敭锛氬繀椤绘槸 PostMessage 鈥斺€?SendMessage 浼氬悓姝ラ樆濉炲湪鎴戜滑鑷繁鐨勭嚎绋嬩笂锛?        // 鑰岀獥鍙ｆ嫋鍔ㄦ槸妯℃€佸惊鐜紝浼氭閿併€?        const down = loaded.PostMessageW(probe.hwnd, MSG.NCLBUTTONDOWN, HT.CAPTION, 0);
+        record(counter, { posted: down === true ? 1 : 0, sent: down === true ? 1 : 0 }, MSG.NCLBUTTONDOWN, { kind: 'ncdrag', caption: true });
+        // 缁欑郴缁熶竴鐐规椂闂磋繘鍏ユ嫋鍔ㄥ惊鐜?        sleepSync(60);
+        for (let i = 1; i <= steps; i++) {
+          loaded.SetCursorPos(startX + Math.round((dx * i) / steps), startY + Math.round((dy * i) / steps));
+          sleepSync(stepDelayMs);
+        }
+        loaded.PostMessageW(probe.hwnd, MSG.LBUTTONUP, 0, 0);
+        sleepSync(80);
+        const after = probeWindow(probe.hwnd);
+        if (after.ok === true && after.rect !== undefined && rect !== undefined) {
+          moved = after.rect.left !== rect.left || after.rect.top !== rect.top;
+        }
+      } finally {
+        if (options.restoreCursor !== false && original.ok === true) {
+          try { loaded.SetCursorPos(original.x, original.y); } catch { /* 鎭㈠澶辫触涓嶆敼缁撹 */ }
+        }
+      }
+
+      return {
+        ok: counter.failed === 0,
+        mode: 'window',
+        hwnd: probe.hwnd,
+        button: buttonName,
+        steps,
+        posted: counter.posted,
+        sent: counter.sent,
+        failed: counter.failed,
+        moved,
+        usesRealCursor: true,
+        cursorRestored: options.restoreCursor !== false,
+        messages: counter.messages,
+        note: 'window dragging runs a window-manager modal loop that follows the REAL cursor; '
+          + 'this is the only operation in this plugin that touches the real mouse',
+        reason: counter.failed > 0 ? 'PostMessageW failed (UIPI or dead window)' : undefined,
+      };
+    }
+
+    // --- 鍐呭鎷栧姩锛氱函绐楀彛娑堟伅锛屼笉纰扮湡瀹炲厜鏍?---
+    const start = normalizePoint(probe.hwnd, from.x, from.y, options);
+    if (start.ok !== true) return start;
+    const end = normalizePoint(probe.hwnd, to.x, to.y, options);
+    if (end.ok !== true) return end;
+
+    const downMsg = button.down;
+    const upMsg = button.up;
+    const mkFlag = button.mk;
+    const mode2 = options.foreground === true ? 'send' : (options.deliver === 'send' ? 'send' : 'post');
+    const base = realModifierState(loaded).mk;
+
+    // 鎸変笅
+    const downPacked = packMouseLParam(start.x, start.y);
+    const downOut = deliver(loaded, probe.hwnd, downMsg, base | mkFlag, downPacked.lp, mode2);
+    record(counter, downOut, downMsg, { x: start.x, y: start.y, kind: 'drag-down' });
+
+    // 涓棿绉诲姩锛氫繚鎸佹寜閿爣蹇楋紝璁╃洰鏍囩煡閬?杩欐槸鍦ㄦ嫋鍔?
+    for (let i = 1; i <= steps; i++) {
+      const mx = Math.round(start.x + ((end.x - start.x) * i) / steps);
+      const my = Math.round(start.y + ((end.y - start.y) * i) / steps);
+      const packed = packMouseLParam(mx, my);
+      const out = deliver(loaded, probe.hwnd, MSG.MOUSEMOVE, base | mkFlag, packed.lp, mode2);
+      record(counter, out, MSG.MOUSEMOVE, { x: mx, y: my, kind: 'drag-move', step: i });
+      if (stepDelayMs > 0) sleepSync(stepDelayMs);
+    }
+
+    // 鎶捣
+    const endPacked = packMouseLParam(end.x, end.y);
+    const upOut = deliver(loaded, probe.hwnd, upMsg, base, endPacked.lp, mode2);
+    record(counter, upOut, upMsg, { x: end.x, y: end.y, kind: 'drag-up' });
+
+    return {
+      ok: counter.failed === 0,
+      mode: 'content',
+      hwnd: probe.hwnd,
+      button: buttonName,
+      steps,
+      from: { x: start.x, y: start.y },
+      to: { x: end.x, y: end.y },
+      posted: counter.posted,
+      sent: counter.sent,
+      failed: counter.failed,
+      usesRealCursor: false,
+      cursorUntouched: true,
+      messages: counter.messages,
+      note: 'content dragging is delivered purely as window messages; the real cursor never moves',
+      reason: counter.failed > 0 ? `delivery failed for hwnd ${probe.hwnd} (UIPI or dead window)` : undefined,
+    };
+  } catch (error) {
+    return { ok: false, reason: error?.dshReason ?? error?.message ?? String(error), posted: counter.posted };
+  }
+}
+
+/**
+ * 鐢ㄦ粴鍔ㄦ潯娑堟伅閫愯/閫愰〉婊氬姩锛堟瘮婊氳疆鏇寸簿纭級銆? *
+ * 涓轰粈涔堥渶瑕佸畠锛氭粴杞殑**绮掑害鐢辩洰鏍囨帶浠跺喅瀹?*锛堝疄娴嬭浜嬫湰閲屼竴鏍兼粴杞彲鑳借烦鍗佸嚑琛? * 鐢氳嚦鐩存帴鍒板簳锛夛紝鏃犳硶鐢辫皟鐢ㄦ柟绮剧粏鎺у埗銆傚綋浣犻渶瑕?绮剧‘婊氬姩 N 琛?鏃讹紝
+ * `WM_VSCROLL(SB_LINEDOWN)` 姣忔鎭板ソ涓€琛岋紝瀹炴祴鍙潬銆? *
+ * @param hwnd - 鐩爣绐楀彛銆? * @param options.direction - 'up'|'down'|'left'|'right'锛岄粯璁?'down'銆? * @param options.unit - 'line'锛堥粯璁わ級| 'page'銆? * @param options.times - 閲嶅娆℃暟锛岄粯璁?1銆? */
+export function scrollLines(hwnd, options = {}) {
+  const counter = createCounter();
+  try {
+    const loaded = requireBindings();
+    const probe = probeWindow(hwnd);
+    if (probe.ok !== true) return probe;
+
+    const direction = String(options.direction ?? 'down').toLowerCase();
+    const unit = options.unit === 'page' ? 'page' : 'line';
+    const times = Number.isInteger(options.times) && options.times > 0 ? Math.min(options.times, 500) : 1;
+
+    const horizontal = direction === 'left' || direction === 'right';
+    const message = horizontal ? MSG.HSCROLL : MSG.VSCROLL;
+    let command;
+    if (horizontal) {
+      command = direction === 'left'
+        ? (unit === 'page' ? SB.PAGEUP : SB.LINEUP)
+        : (unit === 'page' ? SB.PAGEDOWN : SB.LINEDOWN);
+    } else {
+      command = direction === 'up'
+        ? (unit === 'page' ? SB.PAGEUP : SB.LINEUP)
+        : (unit === 'page' ? SB.PAGEDOWN : SB.LINEDOWN);
+    }
+
+    const mode = options.deliver === 'send' ? 'send' : 'post';
+    for (let i = 0; i < times; i++) {
+      const out = deliver(loaded, probe.hwnd, message, command, 0, mode);
+      record(counter, out, message, { direction, unit, index: i, kind: 'scrollbar' });
+    }
+
+    return {
+      ok: counter.failed === 0,
+      hwnd: probe.hwnd,
+      direction,
+      unit,
+      times,
+      command,
+      posted: counter.posted,
+      sent: counter.sent,
+      failed: counter.failed,
+      usesRealCursor: false,
+      messages: counter.messages,
+      note: 'scrollbar messages scroll exactly one line per WM_VSCROLL(SB_LINE*) call; '
+        + 'more precise than the mouse wheel, whose granularity is decided by the target control',
+      reason: counter.failed > 0 ? `delivery failed for hwnd ${probe.hwnd}` : undefined,
+    };
+  } catch (error) {
+    return { ok: false, reason: error?.dshReason ?? error?.message ?? String(error), posted: counter.posted };
+  }
+}
+
+export const PUBLIC_API = {
+  // 鏌ヨ
+  probeWindow, describeSensitivity, describeVirtualInput, childWindows, isEditControl,
+  // 鍓嶇疆鍑嗗
+  ensureTargetReady,
+  // 鍧愭爣
+  clientToScreen, screenToClient, normalizePoint, packMouseLParam, unpackMouseLParam,
+  // 榧犳爣
+  click, move, scroll, drag, scrollLines,
+  // 閿洏
+  writeText, pressKey, keyCombo, explainKey, resolveKey, parseKeySpec, buildKeyLParam, scanCodeForVk,
+  // 缂栬緫鎺т欢鍙潬璺緞锛圗M_*锛?  edit, selectAll, replaceSelection, clearSelection, getSelection,
+  // 鍥炶
+  readTextViaMessages, cursorPosition,
+};
+
+export default PUBLIC_API;

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Virtual computer use">
+  <rect x="6" y="9" width="52" height="38" rx="5" fill="#eaf1ff" stroke="#2f7cf6" stroke-width="3.4" />
+  <path d="M13 19.5h12M13 26.5h8" stroke="#2f7cf6" stroke-width="3" stroke-linecap="round" opacity=".55" />
+  <path d="M32 55h12M38 47.5V55" fill="none" stroke="#2f7cf6" stroke-width="3.4" stroke-linecap="round" />
+  <path d="M38 28.5v12.2M38 41.7l4.8-5M38 41.7l-4.8-5" fill="none" stroke="#1f3fb8" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" />
+  <g transform="translate(44.5 33.5)">
+    <path d="M0 0v13.2l3.3-3.1 2.6 5.7 3.1-1.4-2.6-5.6 4.6-.5z" fill="#34c77b" stroke="#16714a" stroke-width="1.5" stroke-linejoin="round" />
+  </g>
+</svg>

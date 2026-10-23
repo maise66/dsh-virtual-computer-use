@@ -1,0 +1,44 @@
+{
+  "name": "dsh-virtual-computer-use",
+  "version": "1.0.0",
+  "private": true,
+  "description": "虚拟鼠标键盘的电脑操作插件：窗口消息注入不抢占真实光标（用户鼠标可并行操作），操作时显示「屏幕操作中」置顶悬浮窗，全局双击 ESC 中断正在运行的脚本操作。",
+  "type": "module",
+  "icon": "./icon.svg",
+  "exports": {
+    ".": "./host.js",
+    "./host": "./host.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "host.js",
+    "lib",
+    "test",
+    "docs",
+    "icon.svg",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "license": "MIT",
+  "keywords": [
+    "deepseek",
+    "harness",
+    "dsh",
+    "dsh-plugin",
+    "computer-use",
+    "virtual-mouse",
+    "virtual-keyboard",
+    "windows"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "os": [
+    "win32"
+  ]
+}
