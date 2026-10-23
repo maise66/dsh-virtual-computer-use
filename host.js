@@ -64,6 +64,106 @@ function resolveConfig(raw) {
   return config;
 }
 
+/**
+ * 把任意返回值整理成"无损 JSON"的纯数据。
+ *
+ * 宿主会对工具结果做 JSON round-trip 校验：`undefined` 属性在 stringify 时被丢掉，
+ * 于是 round-trip 后的对象与原对象不等，就会被判成
+ * `value is not lossless JSON`，模型拿不到任何结果。
+ * `NaN`/`Infinity` 会变成 `null`，`BigInt` 直接让 JSON.stringify 抛错，
+ * `Buffer`/`Date` 同理。这里在出口统一净化，避免这些"技术性失败"。
+ */
+function toJsonSafe(value, depth = 0) {
+  if (depth > 12) return '[depth-limit]';
+  if (value === null || value === undefined) return value === undefined ? undefined : null;
+  const t = typeof value;
+  if (t === 'string' || t === 'boolean') return value;
+  if (t === 'number') return Number.isFinite(value) ? value : null;
+  if (t === 'bigint') return value.toString();
+  if (t === 'function' || t === 'symbol') return undefined;
+  if (Buffer.isBuffer(value)) return value.toString('base64');
+  if (value instanceof Date) return value.toISOString();
+  if (Array.isArray(value)) {
+    return value.map((item) => toJsonSafe(item, depth + 1)).filter((item) => item !== undefined);
+  }
+  if (t === 'object') {
+    const out = {};
+    for (const [key, item] of Object.entries(value)) {
+      const clean = toJsonSafe(item, depth + 1);
+      if (clean !== undefined) out[key] = clean;
+    }
+    return out;
+  }
+  return String(value);
+}
+
+/** 给结果补一个非空 summary，保证 output.schema 的 required 永远满足。 */
+function withSummary(result, toolName) {
+  if (result === null || typeof result !== 'object' || Array.isArray(result)) {
+    return { ok: true, summary: typeof result === 'string' ? result : `${toolName} 完成。` };
+  }
+  if (typeof result.summary === 'string' && result.summary !== '') return result;
+  if (typeof result.summary !== 'string') {
+    const reason = typeof result.reason === 'string' ? result.reason : '';
+    result.summary = result.ok === false
+      ? `${toolName} 失败：${reason || result.message || '未知原因'}`
+      : `${toolName} 完成。`;
+  }
+  return result;
+}
+
+/**
+ * 统一包装 render：原有 render 只输出一句 summary，
+ * 模型因此看不到 windows / lines / controls 这些真正有用的结构化数据
+ * （例如 vcu_list_windows 只回一句"共 28 个窗口"，等于没列）。
+ * 这里在 summary 之后补一段截断的 JSON，让模型拿到可用的数据。
+ */
+const RENDER_JSON_LIMIT = 20000;
+
+function withRender(tool) {
+  const original = tool.output?.render;
+  if (tool.output === undefined) return tool;
+  return {
+    ...tool,
+    output: {
+      ...tool.output,
+      render: (args, value) => {
+        const blocks = [];
+        if (typeof original === 'function') {
+          try {
+            const produced = original(args, value);
+            if (Array.isArray(produced)) blocks.push(...produced);
+          } catch {
+            // 原 render 出错不应吞掉整个结果，下面仍会补 JSON。
+          }
+        }
+        if (blocks.length === 0 && typeof value?.summary === 'string') {
+          blocks.push({ type: 'text', text: value.summary });
+        }
+        const { summary: _summary, ...rest } = value ?? {};
+        if (Object.keys(rest).length > 0) {
+          let json;
+          try {
+            json = JSON.stringify(rest, null, 2);
+          } catch {
+            json = undefined;
+          }
+          if (typeof json === 'string' && json !== '{}') {
+            const clipped = json.length > RENDER_JSON_LIMIT
+              ? `${json.slice(0, RENDER_JSON_LIMIT)}\n…（共 ${json.length} 字符，已截断）`
+              : json;
+            blocks.push({ type: 'text', text: clipped });
+          }
+        }
+        return blocks;
+      },
+    },
+  };
+}
+
+/** 供测试使用的内部工具（不影响生产路径）。 */
+export const __internals = { toJsonSafe, withSummary, withRender };
+
 export function apply(ctx, rawConfig) {
   const config = resolveConfig(rawConfig);
 
@@ -266,10 +366,15 @@ export function apply(ctx, rawConfig) {
   const NO_INPUT_TOOLS = new Set(['vcu_status', 'vcu_reset_abort', 'vcu_list_windows', 'vcu_find_window', 'vcu_window_info', 'vcu_foreground_window']);
 
   function withInit(tools) {
-    return tools.map((tool) => ({
+    return tools.map((tool) => withRender(tool)).map((tool) => ({
       ...tool,
       async execute(args, exec) {
-        await ensureInitialized();
+        try {
+          await ensureInitialized();
+        } catch (error) {
+          const reason = error?.message ?? String(error);
+          return { ok: false, reason, summary: `插件初始化失败：${reason}` };
+        }
         const needsInput = !VISION_TOOLS.has(tool.name) && !NO_INPUT_TOOLS.has(tool.name);
         if (needsInput && runtime.virtualInput === undefined) {
           return {
@@ -278,7 +383,16 @@ export function apply(ctx, rawConfig) {
             summary: `虚拟输入模块加载失败：${runtime.initErrors.join('; ') || '未知原因'}`,
           };
         }
-        return tool.execute(args, exec);
+        try {
+          const result = await tool.execute(args, exec);
+          // 统一出口：补 summary + 净化成纯 JSON。任何一步都不允许把
+          // "结果格式不对" 暴露给模型 —— 那会让一次真实失败变成看不懂的
+          // invalid output。
+          return toJsonSafe(withSummary(result, tool.name)) ?? { ok: true, summary: `${tool.name} 完成。` };
+        } catch (error) {
+          const reason = error?.dshReason ?? error?.message ?? String(error);
+          return { ok: false, reason, summary: `${tool.name} 执行异常：${reason}` };
+        }
       },
     }));
   }
